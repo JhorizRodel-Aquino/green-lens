@@ -10,9 +10,9 @@ import { watchLocation } from "@/utils/location";
 export default function UserPage() {
         // Initial Sample Data
     const initialReports: TrashReport[] = [
-        { id: '1', lat: 14.4550, lng: 120.9520, severity: 'HIGH', details: 'Illegal dump site behind store' },
-        { id: '2', lat: 14.4552, lng: 120.9523, severity: 'HIGH', details: 'Heavy pile of garbage bags' },
-        { id: '3', lat: 14.4650, lng: 120.9450, severity: 'LOW', details: 'Single plastic cup on curb' },
+        { id: '1', lat: 14.4550, lng: 120.9520, severity: 'HIGH', details: 'Illegal dump site behind store', status: 'unresolved', createdAt: new Date().toISOString() },
+        { id: '2', lat: 14.4552, lng: 120.9523, severity: 'HIGH', details: 'Heavy pile of garbage bags', status: 'unresolved', createdAt: new Date().toISOString() },
+        { id: '3', lat: 14.4650, lng: 120.9450, severity: 'LOW', details: 'Single plastic cup on curb', status: 'unresolved', createdAt: new Date().toISOString() },
     ];
 
     

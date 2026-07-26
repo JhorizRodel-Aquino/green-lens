@@ -7,6 +7,7 @@ import AdminLayout from '@/components/layout/AdminLayout';
 import DashboardPage from '@/pages/admin/DashboardPage';
 import MapViewPage from '@/pages/admin/MapViewPage';
 import ReportsPage from '@/pages/admin/ReportsPage';
+import ReportDetailPage from '@/pages/admin/ReportDetailPage';
 import AnalyticsPage from '@/pages/admin/AnalyticsPage';
 import UsersPage from '@/pages/admin/UsersPage';
 import SettingsPage from '@/pages/admin/SettingsPage';
@@ -20,6 +21,7 @@ function App() {
           <Route index element={<DashboardPage />} />
           <Route path="map" element={<MapViewPage />} />
           <Route path="reports" element={<ReportsPage />} />
+          <Route path="reports/:id" element={<ReportDetailPage />} />
           <Route path="analytics" element={<AnalyticsPage />} />
           <Route path="users" element={<UsersPage />} />
           <Route path="settings" element={<SettingsPage />} />

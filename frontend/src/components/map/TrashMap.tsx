@@ -132,6 +132,8 @@ const selectedSeverityIcons: Record<'HIGH' | 'LOW', L.DivIcon> = {
 };
 
 // Types for your Trash Reports
+export type ReportStatus = 'unresolved' | 'flagged' | 'resolved';
+
 export type TrashReport = {
   id: string;
   lat: number;
@@ -140,6 +142,14 @@ export type TrashReport = {
   details: string;
   locationLabel?: string;
   imageUrls?: string[];
+  status: ReportStatus;
+  createdAt: string; // ISO timestamp
+  resolvedAt?: string; // ISO timestamp, set when status becomes 'resolved'
+  flagReason?: 'false_report' | 'out_of_control';
+  flaggedAt?: string; // ISO timestamp, set when status becomes 'flagged'
+  lguActionLogged?: boolean;
+  resolutionProofUrls?: string[]; // "After" photos captured/uploaded when resolving
+  remarks?: { text: string; createdAt: string }[];
 };
 
 export type MyLocation = { lat: number | null; lng: number | null; };

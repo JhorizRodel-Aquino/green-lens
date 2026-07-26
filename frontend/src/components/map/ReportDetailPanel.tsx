@@ -1,20 +1,27 @@
 import { useState } from 'react';
+import { useNavigate } from 'react-router-dom';
 import { X, MapPin, ImageOff, CircleCheck, Flag, ChevronDown, ChevronLeft, ChevronRight, Expand } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
-import type { TrashReport } from './TrashMap';
+import { useReports } from '@/context/ReportsContext';
 import ImageLightbox from './ImageLightbox';
 
 type ReportDetailPanelProps = {
-    report: TrashReport;
+    reportId: string;
     onClose: () => void;
 };
 
-export default function ReportDetailPanel({ report, onClose }: ReportDetailPanelProps) {
+export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPanelProps) {
+    const { reports, flagReport } = useReports();
+    const navigate = useNavigate();
     const [flagMenuOpen, setFlagMenuOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [carouselIndex, setCarouselIndex] = useState(0);
-    const images = report.imageUrls ?? [];
+
+    const report = reports.find((r) => r.id === reportId);
+    const images = report?.imageUrls ?? [];
+
+    if (!report) return null;
 
     const showPrev = () => setCarouselIndex((i) => (i - 1 + images.length) % images.length);
     const showNext = () => setCarouselIndex((i) => (i + 1) % images.length);
@@ -29,14 +36,26 @@ export default function ReportDetailPanel({ report, onClose }: ReportDetailPanel
             </div>
 
             <div className="flex-1 overflow-y-auto p-4 space-y-4">
-                <span
-                    className={cn(
-                        'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                        report.severity === 'HIGH' ? 'bg-red-100 text-red-700' : 'bg-secondary-light/30 text-secondary-dark'
-                    )}
-                >
-                    {report.severity} SEVERITY
-                </span>
+                <div className="flex flex-wrap gap-2">
+                    <span
+                        className={cn(
+                            'inline-block rounded-full px-3 py-1 text-xs font-semibold',
+                            report.severity === 'HIGH' ? 'bg-red-100 text-red-700' : 'bg-secondary-light/30 text-secondary-dark'
+                        )}
+                    >
+                        {report.severity} SEVERITY
+                    </span>
+                    <span
+                        className={cn(
+                            'inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize',
+                            report.status === 'resolved' && 'bg-primary-light/20 text-primary-dark',
+                            report.status === 'flagged' && 'bg-secondary-light/30 text-secondary-dark',
+                            report.status === 'unresolved' && 'bg-light-dark text-dark-light'
+                        )}
+                    >
+                        {report.status}
+                    </span>
+                </div>
 
                 {images.length > 0 ? (
                     <div className="relative aspect-video w-full rounded-lg overflow-hidden border border-light-dark bg-light group">
@@ -121,8 +140,17 @@ export default function ReportDetailPanel({ report, onClose }: ReportDetailPanel
             </div>
 
             <div className="shrink-0 border-t border-light-dark p-4 flex gap-2 relative">
-                <Button variant="primary" leftIcon={CircleCheck} fullWidth className="rounded-lg">
-                    Resolve
+                <Button
+                    variant="primary"
+                    leftIcon={CircleCheck}
+                    fullWidth
+                    className="rounded-lg"
+                    onClick={() => {
+                        onClose();
+                        navigate(`/admin/reports/${report.id}`);
+                    }}
+                >
+                    {report.status === 'resolved' ? 'View Resolution' : 'Resolve'}
                 </Button>
 
                 <div className="relative">
@@ -140,14 +168,20 @@ export default function ReportDetailPanel({ report, onClose }: ReportDetailPanel
                         <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-light-dark bg-white shadow-lg overflow-hidden">
                             <button
                                 type="button"
-                                onClick={() => setFlagMenuOpen(false)}
+                                onClick={() => {
+                                    setFlagMenuOpen(false);
+                                    flagReport(report.id, 'false_report');
+                                }}
                                 className="w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light"
                             >
                                 False report
                             </button>
                             <button
                                 type="button"
-                                onClick={() => setFlagMenuOpen(false)}
+                                onClick={() => {
+                                    setFlagMenuOpen(false);
+                                    flagReport(report.id, 'out_of_control');
+                                }}
                                 className="w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light border-t border-light-dark"
                             >
                                 Out of our control
