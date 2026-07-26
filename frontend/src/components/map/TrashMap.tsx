@@ -67,7 +67,7 @@ export const TrashMap = ({ reports, setReports }: TrashMapProps) => {
             onChange={(e) => setShowHeatmap(e.target.checked)}
             style={{ marginRight: '6px' }}
           />
-          Toggle Heatmap Layer
+          Heatmap
         </label>
       </div>
 

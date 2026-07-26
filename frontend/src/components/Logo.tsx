@@ -17,16 +17,18 @@ export default function Logo() {
                     fontWeight: 700,
                     fontSize: '1.6rem',
                     letterSpacing: '-0.02em',
-                    color: '#111827',
                     fontFamily: 'cursive',
                 }}
+                className="text-dark"
             >
                 Green
-                <span style={{ 
-                    color: '#16a34a', 
-                    fontFamily: '"Dancing Script", cursive',
-                    fontSize: '1.999rem',
-                }}>
+                <span 
+                    style={{ 
+                        fontFamily: '"Dancing Script", cursive',
+                        fontSize: '1.999rem',
+                    }}
+                    className="text-primary"
+                >
                     Lens
                 </span>
             </span>
