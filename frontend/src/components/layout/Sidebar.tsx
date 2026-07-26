@@ -122,7 +122,7 @@ export default function Sidebar() {
             {/* Desktop sidebar */}
             <aside
                 className={cn(
-                    "hidden md:flex flex-col bg-white border-r border-light-dark h-dvh sticky top-0 transition-all duration-200",
+                    "hidden md:flex z-[1001] flex-col bg-white border-r border-light-dark h-dvh sticky top-0 transition-all duration-200",
                     collapsed ? "w-16" : "w-64"
                 )}
             >
@@ -131,7 +131,7 @@ export default function Sidebar() {
                     type="button"
                     onClick={toggleCollapsed}
                     title={collapsed ? "Expand" : "Collapse"}
-                    className="absolute top-4 -right-3 h-6 w-6 rounded-full border border-light-dark bg-white flex items-center justify-center text-dark-light hover:text-primary shadow-sm"
+                    className="absolute top-4 -right-3 z-[1001] h-6 w-6 rounded-full border border-light-dark bg-white flex items-center justify-center text-dark-light hover:text-primary shadow-sm"
                 >
                     {collapsed ? <ChevronRight size={14} /> : <ChevronLeft size={14} />}
                 </button>
@@ -139,7 +139,7 @@ export default function Sidebar() {
 
             {/* Mobile drawer */}
             {mobileOpen && (
-                <div className="md:hidden fixed inset-0 z-50 flex">
+                <div className="md:hidden fixed inset-0 z-[1001] flex">
                     <div
                         className="fixed inset-0 bg-black/40"
                         onClick={() => setMobileOpen(false)}
