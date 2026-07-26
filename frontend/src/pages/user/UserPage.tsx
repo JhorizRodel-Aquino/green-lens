@@ -1,8 +1,8 @@
 import { useState } from "react";
-import { TrashMap, type TrashReport } from "../../components/map/TrashMap";
-import UserLayout from "../../components/layout/UserLayout";
-import ReportCamera from "../../components/ReportCamera";
-import { Button } from "../../components/ui/Button";
+import { TrashMap, type TrashReport } from "@/components/map/TrashMap";
+import UserLayout from "@/components/layout/UserLayout";
+import ReportCamera from "@/components/ReportCamera";
+import { Button } from "@/components/ui/Button";
 
 
 export default function UserPage() {
