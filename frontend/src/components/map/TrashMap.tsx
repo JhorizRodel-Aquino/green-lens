@@ -88,6 +88,49 @@ const severityIcons: Record<'HIGH' | 'LOW', L.DivIcon> = {
   LOW: createSeverityIcon(SEVERITY_COLORS.LOW),
 };
 
+// Selected-marker variant: larger pin + a ring around its base, so whichever
+// report is open in the detail panel is unambiguous at a glance on the map.
+const SELECTED_PIN_SIZE = 36;
+
+const createSelectedSeverityIcon = (color: string) =>
+  new L.DivIcon({
+    className: 'severity-marker-selected',
+    html: `
+      <div style="position: relative; width: ${SELECTED_PIN_SIZE}px; height: ${SELECTED_PIN_SIZE}px;">
+        <div style="
+          position: absolute;
+          top: ${SELECTED_PIN_SIZE - 14}px;
+          left: ${SELECTED_PIN_SIZE / 2 - 14}px;
+          width: 28px;
+          height: 28px;
+          border-radius: 50%;
+          background: ${color}33;
+          border: 2px solid ${color};
+        "></div>
+        <div style="
+          position: absolute;
+          top: 0;
+          left: 0;
+          width: ${SELECTED_PIN_SIZE}px;
+          height: ${SELECTED_PIN_SIZE}px;
+          border-radius: 50% 50% 50% 0;
+          background: ${color};
+          border: 3px solid white;
+          box-shadow: 0 3px 10px rgba(0,0,0,0.5);
+          transform: rotate(-45deg);
+          z-index: 1;
+        "></div>
+      </div>
+    `,
+    iconSize: [SELECTED_PIN_SIZE, SELECTED_PIN_SIZE],
+    iconAnchor: [SELECTED_PIN_SIZE / 2, SELECTED_PIN_SIZE],
+  });
+
+const selectedSeverityIcons: Record<'HIGH' | 'LOW', L.DivIcon> = {
+  HIGH: createSelectedSeverityIcon(SEVERITY_COLORS.HIGH),
+  LOW: createSelectedSeverityIcon(SEVERITY_COLORS.LOW),
+};
+
 // Types for your Trash Reports
 export type TrashReport = {
   id: string;
@@ -129,6 +172,7 @@ type TrashMapProps = {
   showLogo?: boolean; // NEW: Control logo visibility
   onMarkerClick?: (report: TrashReport) => void; // NEW: Marker click handler
   isDetailPanelOpen?: boolean; // Shifts the Pins/Heatmap switch clear of a caller-rendered detail panel
+  selectedReportId?: string; // Highlights this report's marker as the active selection
 };
 
 export const TrashMap = ({
@@ -138,6 +182,7 @@ export const TrashMap = ({
   showLogo = true, // Default: show logo
   onMarkerClick, // Optional marker click handler
   isDetailPanelOpen = false,
+  selectedReportId,
 }: TrashMapProps) => {
   const [showPins, setShowPins] = useState<boolean>(true);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
@@ -231,11 +276,28 @@ export const TrashMap = ({
             <Marker
               key={report.id}
               position={[report.lat, report.lng]}
-              icon={severityIcons[report.severity]}
+              icon={
+                report.id === selectedReportId
+                  ? selectedSeverityIcons[report.severity]
+                  : severityIcons[report.severity]
+              }
+              zIndexOffset={report.id === selectedReportId ? 1000 : 0}
               eventHandlers={{
                 click: () => onMarkerClick?.(report),
               }}
-            />
+            >
+              {/* Default popup when the caller isn't handling clicks itself (e.g. admin's offcanvas) */}
+              {!onMarkerClick && (
+                <Popup>
+                  <div>
+                    <strong style={{ color: SEVERITY_COLORS[report.severity] }}>
+                      {report.severity} SEVERITY
+                    </strong>
+                    <p style={{ margin: '4px 0 0' }}>{report.details}</p>
+                  </div>
+                </Popup>
+              )}
+            </Marker>
           ))}
       </MapContainer>
     </div>

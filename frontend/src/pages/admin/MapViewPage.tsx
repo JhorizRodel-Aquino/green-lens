@@ -47,6 +47,7 @@ export default function MapViewPage() {
           myLocation={userLoc}
           onMarkerClick={setSelectedReport}
           isDetailPanelOpen={!!selectedReport}
+          selectedReportId={selectedReport?.id}
         />
 
         {selectedReport && (
