@@ -1,8 +1,10 @@
-import { useState } from "react";
-import { TrashMap, type TrashReport } from "@/components/map/TrashMap";
+import { useEffect, useState } from "react";
+import { TrashMap, type MyLocation, type TrashReport } from "@/components/map/TrashMap";
 import UserLayout from "@/components/layout/UserLayout";
 import ReportCamera from "@/components/ReportCamera";
 import { Button } from "@/components/ui/Button";
+import LocationTracker from "@/components/LocationTracker";
+import { watchLocation } from "@/utils/location";
 
 
 export default function UserPage() {
@@ -13,12 +15,34 @@ export default function UserPage() {
         { id: '3', lat: 14.4650, lng: 120.9450, severity: 'LOW', details: 'Single plastic cup on curb' },
     ];
 
-    const [openDrawer, setDrawerModal] = useState(true)
+    
+
+    const [openDrawer, setDrawerModal] = useState(false)
     const [showCamera, setShowCamera] = useState(false);
+
+    const [userLoc, setUserLoc] = useState<MyLocation>({ lat: null, lng: null });
+    const [userLocError, setuserLocError] = useState<string | null>(null);
+    
+    useEffect(() => {
+    // Start watching location
+    const unwatch = watchLocation(
+        (result) => {
+        // This runs every time location updates
+        setUserLoc({ lat: result.lat, lng: result.lng });
+        console.log('📍 Updated:', result.lat, result.lng);
+        },
+        (err) => {
+        setuserLocError(err.message);
+        }
+    );
+
+    // Stop watching when component unmounts
+    return () => unwatch();
+    }, []);
 
     return (
         <UserLayout>
-            <TrashMap reports={initialReports} />
+            <TrashMap reports={initialReports} myLocation={userLoc} showLogo={true}/>
 
             <div
                 className={`absolute inset-x-0 bottom-0 h-[85dvh] z-[9999] rounded-t-[30px] bg-light transition-transform duration-300 ease-in-out ${openDrawer ? "translate-y-0" : "translate-y-[calc(100%-60px)]"
@@ -35,6 +59,7 @@ export default function UserPage() {
 
                 {/* Rest of the drawer content (visible when expanded) */}
                 <div className="">
+                    <LocationTracker />
                     {/* Button to open camera */}
                     <Button className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 bg-primary text-white px-6 py-3 rounded-full" onClick={() => setShowCamera(true)}>Report Trash</Button>
                 </div>

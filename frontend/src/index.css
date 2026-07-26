@@ -4,6 +4,31 @@
 @tailwind components;
 @tailwind utilities;
 
-.leaflet-control-zoom {
-  top: 70px !important; /* Adjust this value to sit below your logo */
+@keyframes pulse-pin-ring {
+  0% {
+    transform: scale(0.5);
+    opacity: 1;
+  }
+  100% {
+    transform: scale(2.4);
+    opacity: 0;
+  }
+}
+
+.pulse-pin-ring {
+  animation: pulse-pin-ring 1.5s ease-out infinite;
+}
+
+.pulse-pin-ring-delayed {
+  animation: pulse-pin-ring 1.5s ease-out infinite;
+  animation-delay: 0.75s;
+}
+
+/* When the logo is showing, push the top-left zoom control down so it
+   stacks beneath it instead of overlapping. Leaflet's own
+   ".leaflet-top .leaflet-control { margin-top: 10px }" rule has equal
+   specificity and loads after this file (via App.tsx's leaflet.css
+   import), so it wins the cascade unless we use !important here. */
+.zoom-below-logo .leaflet-control-zoom {
+  margin-top: 70px !important;
 }
