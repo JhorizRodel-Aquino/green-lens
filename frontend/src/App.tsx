@@ -1,12 +1,12 @@
 import './App.css'
 import 'leaflet/dist/leaflet.css';
-import UserLayout from './components/layout/UserLayout';
+import UserPage from './pages/user/UserPage';
 
 function App() {
 
   return (
     <>
-      <UserLayout />
+      <UserPage />
       
     </>
   )
