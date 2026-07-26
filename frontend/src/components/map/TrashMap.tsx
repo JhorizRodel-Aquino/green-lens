@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef } from 'react';
 import { MapContainer, TileLayer, Marker, Popup, useMap, ZoomControl } from 'react-leaflet';
 import L from 'leaflet';
+import { MapPin, Flame } from 'lucide-react';
 import { HeatmapLayer, type HeatPoint } from './HeatmapLayer';
 
 // Fix for default Leaflet marker icons broken by Webpack/Vite bundlers
@@ -10,6 +11,7 @@ import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import Logo from '../Logo';
 import { SEVERITY_COLORS } from '@/config/severity';
+import { cn } from '@/utils/cn';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -93,6 +95,8 @@ export type TrashReport = {
   lng: number;
   severity: 'HIGH' | 'LOW';
   details: string;
+  locationLabel?: string;
+  imageUrls?: string[];
 };
 
 export type MyLocation = { lat: number | null; lng: number | null; };
@@ -124,16 +128,19 @@ type TrashMapProps = {
   myLocation?: MyLocation;
   showLogo?: boolean; // NEW: Control logo visibility
   onMarkerClick?: (report: TrashReport) => void; // NEW: Marker click handler
+  isDetailPanelOpen?: boolean; // Shifts the Pins/Heatmap switch clear of a caller-rendered detail panel
 };
 
-export const TrashMap = ({ 
-  reports, 
-  setReports, 
-  myLocation, 
+export const TrashMap = ({
+  reports,
+  setReports,
+  myLocation,
   showLogo = true, // Default: show logo
-  onMarkerClick // Optional marker click handler
+  onMarkerClick, // Optional marker click handler
+  isDetailPanelOpen = false,
 }: TrashMapProps) => {
-  const [showHeatmap, setShowHeatmap] = useState<boolean>(true);
+  const [showPins, setShowPins] = useState<boolean>(true);
+  const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
   // Convert report data into Heatmap points [lat, lng, intensity]
   const heatPoints: HeatPoint[] = reports.map((r) => [
@@ -144,35 +151,44 @@ export const TrashMap = ({
 
   return (
     <div
-      style={{ position: 'relative', width: '100vw', height: '100vh' }}
+      style={{ position: 'relative', width: '100%', height: '100%' }}
       className={showLogo ? 'zoom-below-logo' : undefined}
     >
-      
+
       {/* Upper Left Logo: GreenLens - Conditional */}
       {showLogo && <Logo />}
 
-      {/* UI Control Panel Overlay (Top Right) */}
+      {/* Pins / Heatmap switch, shifts left on desktop when the detail panel is open */}
       <div
-        style={{
-          position: 'absolute',
-          top: 14,
-          right: 14,
-          zIndex: 1000,
-          background: 'white',
-          padding: '10px 14px',
-          borderRadius: '10px',
-          boxShadow: '0 2px 8px rgba(0,0,0,0.15)',
-        }}
+        className={cn(
+          'absolute top-4 right-4 z-[1000] flex gap-1 rounded-lg border border-light-dark bg-white p-1 shadow-sm transition-all duration-200',
+          isDetailPanelOpen && 'md:right-[calc(24rem+1rem)]'
+        )}
       >
-        <label style={{ cursor: 'pointer', fontWeight: 600, fontSize: '0.9rem' }}>
-          <input
-            type="checkbox"
-            checked={showHeatmap}
-            onChange={(e) => setShowHeatmap(e.target.checked)}
-            style={{ marginRight: '6px' }}
-          />
+        <button
+          type="button"
+          onClick={() => setShowPins((v) => (v && !showHeatmap ? v : !v))}
+          aria-pressed={showPins}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            showPins ? 'bg-primary text-white' : 'text-dark-light hover:bg-light'
+          )}
+        >
+          <MapPin size={16} />
+          Pins
+        </button>
+        <button
+          type="button"
+          onClick={() => setShowHeatmap((v) => (v && !showPins ? v : !v))}
+          aria-pressed={showHeatmap}
+          className={cn(
+            'flex items-center gap-1.5 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+            showHeatmap ? 'bg-primary text-white' : 'text-dark-light hover:bg-light'
+          )}
+        >
+          <Flame size={16} />
           Heatmap
-        </label>
+        </button>
       </div>
 
       {/* Main React Leaflet Container */}
@@ -210,29 +226,17 @@ export const TrashMap = ({
         )}
 
         {/* Interactive Pointers / Markers - colored by severity */}
-        {reports.map((report) => (
-          <Marker
-            key={report.id}
-            position={[report.lat, report.lng]}
-            icon={severityIcons[report.severity]}
-            eventHandlers={{
-              click: () => {
-                if (onMarkerClick) {
-                  onMarkerClick(report); // Call the custom handler with the report data
-                }
-              },
-            }}
-          >
-            <Popup>
-              <div>
-                <strong style={{ color: SEVERITY_COLORS[report.severity] }}>
-                  {report.severity} SEVERITY
-                </strong>
-                <p style={{ margin: '4px 0 0' }}>{report.details}</p>
-              </div>
-            </Popup>
-          </Marker>
-        ))}
+        {showPins &&
+          reports.map((report) => (
+            <Marker
+              key={report.id}
+              position={[report.lat, report.lng]}
+              icon={severityIcons[report.severity]}
+              eventHandlers={{
+                click: () => onMarkerClick?.(report),
+              }}
+            />
+          ))}
       </MapContainer>
     </div>
   );

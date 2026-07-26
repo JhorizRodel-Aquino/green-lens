@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { X, MapPin, ImageOff, CircleCheck, Flag, ChevronDown, ChevronLeft, ChevronRight, Expand } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
-import type { TrashReport } from './AdminTrashMap';
+import type { TrashReport } from './TrashMap';
 import ImageLightbox from './ImageLightbox';
 
 type ReportDetailPanelProps = {

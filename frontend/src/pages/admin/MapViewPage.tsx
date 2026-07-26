@@ -1,4 +1,7 @@
-import AdminTrashMap, { type TrashReport } from "@/components/map/AdminTrashMap";
+import { TrashMap, type MyLocation, type TrashReport } from "@/components/map/TrashMap";
+import ReportDetailPanel from "@/components/map/ReportDetailPanel";
+import { useEffect, useState } from "react";
+import { watchLocation } from "@/utils/location";
 
 const SAMPLE_REPORTS: TrashReport[] = [
     {
@@ -12,10 +15,43 @@ const SAMPLE_REPORTS: TrashReport[] = [
     { id: '3', lat: 14.4650, lng: 120.9450, severity: 'LOW', details: 'Single plastic cup on curb', locationLabel: 'EDSA cor. Taft Ave, Pasay City' },
 ];
 
+
+
 export default function MapViewPage() {
+    const [userLoc, setUserLoc] = useState<MyLocation>({ lat: null, lng: null });
+    const [userLocError, setuserLocError] = useState<string | null>(null);
+    const [selectedReport, setSelectedReport] = useState<TrashReport | null>(null);
+
+    useEffect(() => {
+        // Start watching location
+        const unwatch = watchLocation(
+            (result) => {
+            // This runs every time location updates
+            setUserLoc({ lat: result.lat, lng: result.lng });
+            console.log('📍 Updated:', result.lat, result.lng);
+            },
+            (err) => {
+            setuserLocError(err.message);
+            }
+        );
+    
+        // Stop watching when component unmounts
+        return () => unwatch();
+        }, []);
+
     return (
-        <div className="h-[calc(100dvh-3.5rem)] md:h-dvh">
-            <AdminTrashMap reports={SAMPLE_REPORTS} />
-        </div>
+      <div className="h-[calc(100dvh-3.5rem)] md:h-dvh">
+        <TrashMap
+          reports={SAMPLE_REPORTS}
+          showLogo={false}
+          myLocation={userLoc}
+          onMarkerClick={setSelectedReport}
+          isDetailPanelOpen={!!selectedReport}
+        />
+
+        {selectedReport && (
+          <ReportDetailPanel report={selectedReport} onClose={() => setSelectedReport(null)} />
+        )}
+      </div>
     );
 }
