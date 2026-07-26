@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { TrashMap, type TrashReport } from "../../components/map/TrashMap";
 import UserLayout from "../../components/layout/UserLayout";
+import ReportCamera from "../../components/ReportCamera";
+import { Button } from "../../components/ui/Button";
 
 
 export default function UserPage() {
@@ -12,10 +14,11 @@ export default function UserPage() {
     ];
 
     const [openDrawer, setDrawerModal] = useState(true)
+    const [showCamera, setShowCamera] = useState(false);
 
     return (
         <UserLayout>
-        <TrashMap reports={initialReports} />
+            <TrashMap reports={initialReports} />
 
             <div
                 className={`absolute inset-x-0 bottom-0 h-[85dvh] z-[9999] rounded-t-[30px] bg-light transition-transform duration-300 ease-in-out ${openDrawer ? "translate-y-0" : "translate-y-[calc(100%-60px)]"
@@ -32,7 +35,8 @@ export default function UserPage() {
 
                 {/* Rest of the drawer content (visible when expanded) */}
                 <div className="">
-                    {/* Map stats, report list, etc. */}
+                    {/* Button to open camera */}
+                    <Button className="absolute bottom-24 left-1/2 -translate-x-1/2 z-50 bg-primary text-white px-6 py-3 rounded-full" onClick={() => setShowCamera(true)}>Report Trash</Button>
                 </div>
 
                 <nav className="absolute bottom-0 w-full border-t border-gray-200 bg-light-lighter shadow-lg">
@@ -55,6 +59,12 @@ export default function UserPage() {
                     </ul>
                 </nav>
             </div>
+            
+            {showCamera && (
+                <div className="fixed inset-0 z-[99999] bg-black h-dvh w-full">
+                    <ReportCamera onClose={() => setShowCamera(false)} />
+                </div>
+            )}
         </UserLayout>
     )
 }

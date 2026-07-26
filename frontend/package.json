@@ -10,11 +10,17 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "class-variance-authority": "^0.7.1",
+    "clsx": "^2.1.1",
     "leaflet": "^1.9.4",
     "leaflet.heat": "^0.2.0",
+    "lucide-react": "^1.27.0",
     "react": "^19.2.7",
+    "react-camera-component": "^1.1.5",
     "react-dom": "^19.2.7",
-    "react-leaflet": "^5.0.0"
+    "react-leaflet": "^5.0.0",
+    "react-router-dom": "^7.18.1",
+    "tailwind-merge": "^3.6.0"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
