@@ -10,9 +10,7 @@ const router = Router();
 const createReportSchema = z.object({
     lat: z.number(),
     lng: z.number(),
-    severity: z.enum(['HIGH', 'LOW']),
     details: z.string().min(1),
-    locationLabel: z.string().nullish(),
     imageUrls: z.array(z.string()).default([]),
 });
 

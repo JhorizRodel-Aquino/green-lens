@@ -20,13 +20,15 @@ test('reverseGeocode returns the address block from Nominatim', async () => {
         assert.ok(url.includes('addressdetails=1'));
         return new Response(JSON.stringify({
             address: { country_code: 'ph', country: 'Philippines', city: 'Naic' },
+            display_name: 'Naic, Cavite, Region IV-A, Philippines',
         }), { status: 200 });
     }) as typeof fetch;
 
     try {
-        const address = await reverseGeocode(14.45, 120.95);
+        const { address, displayName } = await reverseGeocode(14.45, 120.95);
         assert.equal(address.country_code, 'ph');
         assert.equal(address.city, 'Naic');
+        assert.equal(displayName, 'Naic, Cavite, Region IV-A, Philippines');
     } finally {
         globalThis.fetch = originalFetch;
     }

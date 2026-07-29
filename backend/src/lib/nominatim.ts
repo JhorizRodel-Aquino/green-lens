@@ -8,6 +8,14 @@ export interface NominatimAddress {
     state_district?: string;
     state?: string;
     region?: string;
+    city_district?: string;
+    borough?: string;
+    suburb?: string;
+}
+
+export interface NominatimResult {
+    address: NominatimAddress;
+    displayName: string;
 }
 
 /** Returns a `wait()` that resolves only once `minIntervalMs` has passed since the last resolved call. */
@@ -24,11 +32,11 @@ export function createThrottle(minIntervalMs: number): () => Promise<void> {
 // Nominatim usage policy caps unauthenticated use at 1 request/second, globally.
 const throttle = createThrottle(1000);
 
-export async function reverseGeocode(lat: number, lng: number): Promise<NominatimAddress> {
+export async function reverseGeocode(lat: number, lng: number): Promise<NominatimResult> {
     await throttle();
     const url = `https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=jsonv2&addressdetails=1`;
     const res = await fetch(url, { headers: { 'User-Agent': 'green-lens-backend/1.0' } });
     if (!res.ok) throw new Error(`Nominatim request failed: ${res.status}`);
-    const data = (await res.json()) as { address?: NominatimAddress };
-    return data.address ?? {};
+    const data = (await res.json()) as { address?: NominatimAddress; display_name?: string };
+    return { address: data.address ?? {}, displayName: data.display_name ?? '' };
 }

@@ -27,7 +27,7 @@ test('POST /api/reports rejects points outside the Philippines', async () => {
             const res = await fetch(`${base}/api/reports`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: 37.7, lng: -122.4, severity: 'LOW', details: 'test' }),
+                body: JSON.stringify({ lat: 37.7, lng: -122.4, details: 'test' }),
             });
             assert.equal(res.status, 422);
         });
@@ -47,14 +47,14 @@ test('GET /api/reports only returns reports within the caller jurisdiction', asy
     });
     const inJurisdiction = await prisma.report.create({
         data: {
-            lat: 14.32, lng: 120.77, severity: 'LOW', details: 'in scope',
+            lat: 14.32, lng: 120.77, details: 'in scope', locationLabel: 'Naic, Cavite, Region IV-A, Philippines',
             regionCode: 'R4A', regionName: 'Region IV-A', provinceCode: 'CAV', provinceName: 'Cavite',
             municipalityCode: 'NAIC', municipalityName: 'Naic', jurisdictionStatus: 'ASSIGNED',
         },
     });
     const outOfJurisdiction = await prisma.report.create({
         data: {
-            lat: 10.3, lng: 123.9, severity: 'LOW', details: 'out of scope',
+            lat: 10.3, lng: 123.9, details: 'out of scope', locationLabel: 'Cebu City, Cebu, Region VII, Philippines',
             regionCode: 'R7', regionName: 'Region VII', provinceCode: 'CEB', provinceName: 'Cebu',
             municipalityCode: 'CEBU_CITY', municipalityName: 'Cebu City', jurisdictionStatus: 'ASSIGNED',
         },
@@ -83,7 +83,7 @@ test('PATCH /api/reports/:id/jurisdiction requires SUPER_ADMIN', async () => {
         },
     });
     const report = await prisma.report.create({
-        data: { lat: 14.32, lng: 120.77, severity: 'LOW', details: 'unassigned', jurisdictionStatus: 'UNASSIGNED' },
+        data: { lat: 14.32, lng: 120.77, details: 'unassigned', locationLabel: 'Somewhere, Philippines', jurisdictionStatus: 'UNASSIGNED' },
     });
 
     try {

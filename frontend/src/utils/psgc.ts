@@ -35,3 +35,12 @@ export async function fetchCitiesMunicipalities(provinceCode: string): Promise<P
     if (!res.ok) throw new Error('Failed to load cities/municipalities');
     return res.json();
 }
+
+export const NCR_REGION_CODE = '130000000';
+
+/** NCR has no provinces — its second-level jurisdiction unit is a district, not a province. */
+export async function fetchDistricts(regionCode: string): Promise<PsgcCityMunicipality[]> {
+    const res = await fetch(`${BASE}/regions/${regionCode}/districts/`);
+    if (!res.ok) throw new Error('Failed to load districts');
+    return res.json();
+}

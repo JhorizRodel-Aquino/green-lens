@@ -47,3 +47,10 @@ export function fetchCitiesMunicipalitiesByProvince(provinceCode: string): Promi
 export function fetchCitiesMunicipalitiesByRegion(regionCode: string): Promise<PsgcEntity[]> {
     return getJson(`/regions/${regionCode}/cities-municipalities/`);
 }
+
+/** NCR has no provinces — its second-level jurisdiction unit is a district, not a province. */
+export const NCR_REGION_CODE = '130000000';
+
+export function fetchDistricts(regionCode: string): Promise<PsgcEntity[]> {
+    return getJson(`/regions/${regionCode}/districts/`);
+}

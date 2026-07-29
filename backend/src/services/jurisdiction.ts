@@ -1,7 +1,7 @@
 import { reverseGeocode } from '../lib/nominatim';
 import {
-    fetchRegions, fetchProvinces, fetchCitiesMunicipalitiesByProvince, fetchCitiesMunicipalitiesByRegion,
-    findBestMatch,
+    fetchRegions, fetchProvinces, fetchCitiesMunicipalitiesByProvince, fetchDistricts,
+    findBestMatch, NCR_REGION_CODE,
 } from '../lib/psgc';
 
 export class NotInPhilippinesError extends Error {
@@ -13,6 +13,7 @@ export class NotInPhilippinesError extends Error {
 
 export interface JurisdictionResult {
     jurisdictionStatus: 'ASSIGNED' | 'UNASSIGNED';
+    locationLabel: string;
     regionCode: string | null;
     regionName: string | null;
     provinceCode: string | null;
@@ -21,15 +22,17 @@ export interface JurisdictionResult {
     municipalityName: string | null;
 }
 
-const UNASSIGNED: JurisdictionResult = {
-    jurisdictionStatus: 'UNASSIGNED',
-    regionCode: null, regionName: null,
-    provinceCode: null, provinceName: null,
-    municipalityCode: null, municipalityName: null,
-};
+function unassigned(locationLabel: string): JurisdictionResult {
+    return {
+        jurisdictionStatus: 'UNASSIGNED', locationLabel,
+        regionCode: null, regionName: null,
+        provinceCode: null, provinceName: null,
+        municipalityCode: null, municipalityName: null,
+    };
+}
 
 export async function resolveJurisdiction(lat: number, lng: number): Promise<JurisdictionResult> {
-    const address = await reverseGeocode(lat, lng);
+    const { address, displayName } = await reverseGeocode(lat, lng);
     if (address.country_code?.toLowerCase() !== 'ph') {
         throw new NotInPhilippinesError();
     }
@@ -38,35 +41,36 @@ export async function resolveJurisdiction(lat: number, lng: number): Promise<Jur
     const provinceCandidates = [address.state_district, address.county].filter((v): v is string => Boolean(v));
     const municipalityCandidates = [address.city, address.town, address.municipality, address.county]
         .filter((v): v is string => Boolean(v));
+    const districtCandidates = [address.city_district, address.borough, address.suburb]
+        .filter((v): v is string => Boolean(v));
 
     const regions = await fetchRegions();
     const region = findBestMatch(regionCandidates, regions);
-    if (!region) return UNASSIGNED;
+    if (!region) return unassigned(displayName);
 
-    const provinces = await fetchProvinces(region.code);
-
-    if (provinces.length === 0) {
-        // Region has no provinces (e.g. NCR) — municipalities sit directly under the region.
-        const municipalities = await fetchCitiesMunicipalitiesByRegion(region.code);
-        const municipality = findBestMatch(municipalityCandidates, municipalities);
-        if (!municipality) return UNASSIGNED;
+    // NCR has no provinces — its second-level unit is a district, not a province.
+    if (region.code === NCR_REGION_CODE) {
+        const districts = await fetchDistricts(region.code);
+        const district = findBestMatch(districtCandidates, districts);
+        if (!district) return unassigned(displayName);
         return {
-            jurisdictionStatus: 'ASSIGNED',
+            jurisdictionStatus: 'ASSIGNED', locationLabel: displayName,
             regionCode: region.code, regionName: region.name,
             provinceCode: null, provinceName: null,
-            municipalityCode: municipality.code, municipalityName: municipality.name,
+            municipalityCode: district.code, municipalityName: district.name,
         };
     }
 
+    const provinces = await fetchProvinces(region.code);
     const province = findBestMatch(provinceCandidates, provinces);
-    if (!province) return UNASSIGNED;
+    if (!province) return unassigned(displayName);
 
     const municipalities = await fetchCitiesMunicipalitiesByProvince(province.code);
     const municipality = findBestMatch(municipalityCandidates, municipalities);
-    if (!municipality) return UNASSIGNED;
+    if (!municipality) return unassigned(displayName);
 
     return {
-        jurisdictionStatus: 'ASSIGNED',
+        jurisdictionStatus: 'ASSIGNED', locationLabel: displayName,
         regionCode: region.code, regionName: region.name,
         provinceCode: province.code, provinceName: province.name,
         municipalityCode: municipality.code, municipalityName: municipality.name,

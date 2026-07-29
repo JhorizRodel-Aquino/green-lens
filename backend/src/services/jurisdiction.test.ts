@@ -26,7 +26,10 @@ test('resolveJurisdiction throws NotInPhilippinesError outside PH', async () => 
 test('resolveJurisdiction returns ASSIGNED on a full region/province/municipality match', async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fakeFetch({
-        'nominatim.openstreetmap.org': { address: { country_code: 'ph', city: 'Naic', county: 'Cavite', state: 'Region IV-A' } },
+        'nominatim.openstreetmap.org': {
+            address: { country_code: 'ph', city: 'Naic', county: 'Cavite', state: 'Region IV-A' },
+            display_name: 'Naic, Cavite, Region IV-A, Philippines',
+        },
         '/regions/R4A/provinces/': [{ code: 'CAV', name: 'Cavite' }],
         '/provinces/CAV/cities-municipalities/': [{ code: 'NAIC', name: 'Naic' }],
         '/regions/': [{ code: 'R4A', name: 'Region IV-A' }],
@@ -36,9 +39,35 @@ test('resolveJurisdiction returns ASSIGNED on a full region/province/municipalit
         const result = await resolveJurisdiction(14.32, 120.77);
         assert.deepEqual(result, {
             jurisdictionStatus: 'ASSIGNED',
+            locationLabel: 'Naic, Cavite, Region IV-A, Philippines',
             regionCode: 'R4A', regionName: 'Region IV-A',
             provinceCode: 'CAV', provinceName: 'Cavite',
             municipalityCode: 'NAIC', municipalityName: 'Naic',
+        });
+    } finally {
+        globalThis.fetch = originalFetch;
+    }
+});
+
+test('resolveJurisdiction uses districts (not provinces) for NCR', async () => {
+    const originalFetch = globalThis.fetch;
+    globalThis.fetch = fakeFetch({
+        'nominatim.openstreetmap.org': {
+            address: { country_code: 'ph', city_district: 'First District', state: 'NCR' },
+            display_name: 'Manila, NCR, Philippines',
+        },
+        '/regions/130000000/districts/': [{ code: 'D1', name: 'First District' }],
+        '/regions/': [{ code: '130000000', name: 'NCR' }],
+    });
+
+    try {
+        const result = await resolveJurisdiction(14.6, 120.98);
+        assert.deepEqual(result, {
+            jurisdictionStatus: 'ASSIGNED',
+            locationLabel: 'Manila, NCR, Philippines',
+            regionCode: '130000000', regionName: 'NCR',
+            provinceCode: null, provinceName: null,
+            municipalityCode: 'D1', municipalityName: 'First District',
         });
     } finally {
         globalThis.fetch = originalFetch;

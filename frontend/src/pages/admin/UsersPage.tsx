@@ -4,7 +4,7 @@ import { cn } from '@/utils/cn';
 import { apiFetch } from '@/utils/api';
 import Offcanvas from '@/components/ui/Offcanvas';
 import {
-    fetchRegions, fetchProvinces, fetchCitiesMunicipalities,
+    fetchRegions, fetchProvinces, fetchCitiesMunicipalities, fetchDistricts, NCR_REGION_CODE,
     type PsgcRegion, type PsgcProvince, type PsgcCityMunicipality,
 } from '@/utils/psgc';
 
@@ -93,9 +93,9 @@ export default function UsersPage() {
             .then(async (provs) => {
                 setProvinces(provs);
                 if (provs.length === 0) {
-                    // no provinces under this region (e.g. NCR) -> municipalities sit directly under the region
+                    // no provinces under this region -> NCR uses districts, others have municipalities directly under the region
                     setLoadingMunicipalities(true);
-                    const munis = await fetchCitiesMunicipalities(regionCode).catch(() => []);
+                    const munis = await (regionCode === NCR_REGION_CODE ? fetchDistricts(regionCode) : fetchCitiesMunicipalities(regionCode)).catch(() => []);
                     setMunicipalities(munis);
                     setLoadingMunicipalities(false);
                 }
@@ -394,7 +394,7 @@ export default function UsersPage() {
                             )}
 
                             {regionCode && (provinceCode || regionHasNoProvinces) && (
-                                <Field label="Step 3: Municipality/City (optional — leave blank for entire province)">
+                                <Field label={regionCode === NCR_REGION_CODE ? "Step 3: District (optional — leave blank for entire region)" : "Step 3: Municipality/City (optional — leave blank for entire province)"}>
                                     <select
                                         className="w-full bg-light border border-light-dark rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                                         value={municipalityCode}
