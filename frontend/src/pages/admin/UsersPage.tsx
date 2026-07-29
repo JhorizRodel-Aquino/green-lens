@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { UserPlus, ShieldCheck, Users as UsersIcon, MapPin, Ban, CheckCircle2 } from 'lucide-react';
+import { UserPlus, ShieldCheck, Users as UsersIcon, MapPin, Ban, CheckCircle2, Pencil, Copy, KeyRound } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { apiFetch } from '@/utils/api';
+import Offcanvas from '@/components/ui/Offcanvas';
 import {
     fetchRegions, fetchProvinces, fetchCitiesMunicipalities,
     type PsgcRegion, type PsgcProvince, type PsgcCityMunicipality,
@@ -47,8 +48,12 @@ function jurisdictionLabelFor(user: ApiUser): string {
 export default function UsersPage() {
     const [users, setUsers] = useState<ApiUser[]>([]);
     const [loadError, setLoadError] = useState('');
+
+    const [panelOpen, setPanelOpen] = useState(false);
+    const [editingUser, setEditingUser] = useState<ApiUser | null>(null);
     const [submitError, setSubmitError] = useState('');
     const [submitting, setSubmitting] = useState(false);
+    const [revealedPassword, setRevealedPassword] = useState('');
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -74,13 +79,13 @@ export default function UsersPage() {
         fetchRegions().then(setRegions).catch(() => setRegions([]));
     }, []);
 
-    // Region change -> load its provinces (NCR-style regions have none; fall back to region-level cities/municipalities)
+    // Fetches provinces whenever regionCode changes (user pick or prefill). Does NOT
+    // touch provinceCode/municipalityCode — callers reset those explicitly when it's
+    // a real user change, so prefilling an edit can set all three without a race.
     useEffect(() => {
-        setProvinceCode(ENTIRE);
-        setMunicipalityCode(ENTIRE);
-        setMunicipalities([]);
         if (!regionCode) {
             setProvinces([]);
+            setMunicipalities([]);
             return;
         }
         setLoadingProvinces(true);
@@ -99,13 +104,9 @@ export default function UsersPage() {
             .finally(() => setLoadingProvinces(false));
     }, [regionCode]);
 
-    // Province change -> load its municipalities
+    // Fetches municipalities whenever provinceCode changes. Same no-side-effect rule as above.
     useEffect(() => {
-        setMunicipalityCode(ENTIRE);
-        if (!provinceCode) {
-            setMunicipalities([]);
-            return;
-        }
+        if (!provinceCode) return;
         setLoadingMunicipalities(true);
         fetchCitiesMunicipalities(provinceCode)
             .then(setMunicipalities)
@@ -135,35 +136,98 @@ export default function UsersPage() {
         agents: users.filter((u) => u.role === 'LGU_AGENT').length,
     }), [users]);
 
+    function resetForm() {
+        setName('');
+        setEmail('');
+        setRole('LGU_AGENT');
+        setRegionCode('');
+        setProvinceCode(ENTIRE);
+        setMunicipalityCode(ENTIRE);
+        setSubmitError('');
+        setRevealedPassword('');
+    }
+
+    function openCreatePanel() {
+        resetForm();
+        setEditingUser(null);
+        setPanelOpen(true);
+    }
+
+    function openEditPanel(user: ApiUser) {
+        resetForm();
+        setEditingUser(user);
+        setName(user.name);
+        setEmail(user.email);
+        setRole(user.role);
+        setRegionCode(user.regionCode ?? '');
+        setProvinceCode(user.provinceCode ?? ENTIRE);
+        setMunicipalityCode(user.municipalityCode ?? ENTIRE);
+        setPanelOpen(true);
+    }
+
+    function closePanel() {
+        setPanelOpen(false);
+        setEditingUser(null);
+    }
+
+    function onRegionChange(code: string) {
+        setRegionCode(code);
+        setProvinceCode(ENTIRE);
+        setMunicipalityCode(ENTIRE);
+    }
+
+    function onProvinceChange(code: string) {
+        setProvinceCode(code);
+        setMunicipalityCode(ENTIRE);
+    }
+
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
         if (!name.trim() || !email.trim() || !selectedRegion) return;
 
         setSubmitting(true);
         setSubmitError('');
-        try {
-            await apiFetch('/api/users', {
-                method: 'POST',
-                body: JSON.stringify({
-                    name: name.trim(),
-                    email: email.trim(),
-                    role,
-                    regionCode: selectedRegion.code,
-                    regionName: selectedRegion.name,
-                    provinceCode: selectedProvince?.code ?? null,
-                    provinceName: selectedProvince?.name ?? null,
-                    municipalityCode: selectedMunicipality?.code ?? null,
-                    municipalityName: selectedMunicipality?.name ?? null,
-                }),
-            });
+        const payload = {
+            name: name.trim(),
+            email: email.trim(),
+            role,
+            regionCode: selectedRegion.code,
+            regionName: selectedRegion.name,
+            provinceCode: selectedProvince?.code ?? null,
+            provinceName: selectedProvince?.name ?? null,
+            municipalityCode: selectedMunicipality?.code ?? null,
+            municipalityName: selectedMunicipality?.name ?? null,
+        };
 
-            setName('');
-            setEmail('');
-            setRole('LGU_AGENT');
-            setRegionCode('');
-            loadUsers();
+        try {
+            if (editingUser) {
+                await apiFetch(`/api/users/${editingUser.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
+                closePanel();
+                loadUsers();
+            } else {
+                const created = await apiFetch<ApiUser & { tempPassword: string }>('/api/users', {
+                    method: 'POST',
+                    body: JSON.stringify(payload),
+                });
+                setRevealedPassword(created.tempPassword);
+                loadUsers();
+            }
         } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : 'Failed to create account');
+            setSubmitError(err instanceof Error ? err.message : 'Failed to save account');
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    async function handleResetPassword() {
+        if (!editingUser) return;
+        setSubmitting(true);
+        setSubmitError('');
+        try {
+            const result = await apiFetch<{ tempPassword: string }>(`/api/users/${editingUser.id}/reset-password`, { method: 'POST' });
+            setRevealedPassword(result.tempPassword);
+        } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : 'Failed to reset password');
         } finally {
             setSubmitting(false);
         }
@@ -177,9 +241,18 @@ export default function UsersPage() {
 
     return (
         <div className="p-4 md:p-6 space-y-6">
-            <div>
-                <h1 className="text-2xl font-bold text-dark">Authority Management</h1>
-                <p className="text-sm text-dark-light">Create LGU accounts and assign their geographical jurisdiction.</p>
+            <div className="flex items-start justify-between gap-4 flex-wrap">
+                <div>
+                    <h1 className="text-2xl font-bold text-dark">Authority Management</h1>
+                    <p className="text-sm text-dark-light">Create LGU accounts and assign their geographical jurisdiction.</p>
+                </div>
+                <button
+                    type="button"
+                    onClick={openCreatePanel}
+                    className="flex items-center gap-2 px-4 py-2.5 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark active:scale-95 transition-all"
+                >
+                    <UserPlus size={18} /> Create User
+                </button>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
@@ -188,16 +261,74 @@ export default function UsersPage() {
                 <StatTile icon={MapPin} label="LGU Agents" value={String(stats.agents)} />
             </div>
 
-            <div className="grid grid-cols-1 xl:grid-cols-12 gap-6 items-start">
-                {/* Create account form */}
-                <section className="xl:col-span-5 bg-white border border-light-dark rounded-xl p-4 md:p-6">
-                    <div className="flex items-center gap-3 mb-6 border-b border-light-dark pb-4">
-                        <div className="bg-primary-light/20 p-2 rounded-lg">
-                            <UserPlus size={20} className="text-primary-dark" />
-                        </div>
-                        <h2 className="text-lg font-bold text-dark">Create New Official Account</h2>
-                    </div>
+            {/* Directory */}
+            <section className="bg-white border border-light-dark rounded-xl overflow-hidden">
+                <div className="p-4 border-b border-light-dark">
+                    <h2 className="text-lg font-bold text-dark">User Directory</h2>
+                </div>
+                {loadError && <p className="p-4 text-xs text-red-600">{loadError}</p>}
+                <div className="overflow-x-auto">
+                    <table className="w-full text-left border-collapse">
+                        <thead className="bg-light border-b border-light-dark">
+                            <tr>
+                                <th className="p-4 text-xs font-bold text-dark-light">Name &amp; Email</th>
+                                <th className="p-4 text-xs font-bold text-dark-light">Role</th>
+                                <th className="p-4 text-xs font-bold text-dark-light">Jurisdiction</th>
+                                <th className="p-4 text-xs font-bold text-dark-light">Status</th>
+                                <th className="p-4 text-xs font-bold text-dark-light text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody className="divide-y divide-light-dark">
+                            {users.map((u) => (
+                                <tr key={u.id} className="hover:bg-light transition-colors">
+                                    <td className="p-4">
+                                        <p className="text-sm font-bold text-dark">{u.name}</p>
+                                        <p className="text-xs text-dark-light">{u.email}</p>
+                                    </td>
+                                    <td className="p-4">
+                                        <span className="text-xs px-3 py-1 bg-light-dark rounded-full text-dark-light font-medium">{ROLE_LABELS[u.role]}</span>
+                                    </td>
+                                    <td className="p-4 text-sm text-dark">{jurisdictionLabelFor(u)}</td>
+                                    <td className="p-4">
+                                        <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold', STATUS_STYLES[u.status])}>
+                                            <span className={cn('w-1.5 h-1.5 rounded-full', STATUS_DOT[u.status])} />
+                                            {u.status === 'ACTIVE' ? 'Active' : 'Blocked'}
+                                        </span>
+                                    </td>
+                                    <td className="p-4">
+                                        <div className="flex items-center justify-center gap-2">
+                                            <button
+                                                type="button"
+                                                onClick={() => openEditPanel(u)}
+                                                className="p-1.5 text-primary-dark hover:bg-primary-light/20 rounded-lg transition-colors"
+                                                title="Edit"
+                                            >
+                                                <Pencil size={16} />
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => toggleBlocked(u)}
+                                                className={cn(
+                                                    'p-1.5 rounded-lg transition-colors',
+                                                    u.status === 'BLOCKED' ? 'text-primary-dark hover:bg-primary-light/20' : 'text-red-600 hover:bg-red-100'
+                                                )}
+                                                title={u.status === 'BLOCKED' ? 'Unblock' : 'Block'}
+                                            >
+                                                {u.status === 'BLOCKED' ? <CheckCircle2 size={16} /> : <Ban size={16} />}
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            </section>
 
+            <Offcanvas open={panelOpen} onClose={closePanel} title={editingUser ? 'Edit Official Account' : 'Create New Official Account'}>
+                {revealedPassword ? (
+                    <PasswordReveal password={revealedPassword} onDone={closePanel} />
+                ) : (
                     <form className="space-y-5" onSubmit={handleSubmit}>
                         <Field label="Full Name">
                             <input
@@ -240,7 +371,7 @@ export default function UsersPage() {
                                 <select
                                     className="w-full bg-light border border-light-dark rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                                     value={regionCode}
-                                    onChange={(e) => setRegionCode(e.target.value)}
+                                    onChange={(e) => onRegionChange(e.target.value)}
                                     required
                                 >
                                     <option value="" disabled>Choose region...</option>
@@ -253,7 +384,7 @@ export default function UsersPage() {
                                     <select
                                         className="w-full bg-light border border-light-dark rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                                         value={provinceCode}
-                                        onChange={(e) => setProvinceCode(e.target.value)}
+                                        onChange={(e) => onProvinceChange(e.target.value)}
                                         disabled={loadingProvinces}
                                     >
                                         <option value={ENTIRE}>Entire region</option>
@@ -285,72 +416,67 @@ export default function UsersPage() {
 
                         {submitError && <p className="text-xs text-red-600">{submitError}</p>}
 
-                        <button
-                            type="submit"
-                            className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark active:scale-[0.98] transition-all disabled:opacity-50"
-                            disabled={!name.trim() || !email.trim() || !jurisdictionLabel || submitting}
-                        >
-                            {submitting ? 'Registering...' : 'Register Official Account'}
-                        </button>
-                    </form>
-                </section>
+                        <div className="space-y-2">
+                            <button
+                                type="submit"
+                                className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark active:scale-[0.98] transition-all disabled:opacity-50"
+                                disabled={!name.trim() || !email.trim() || !jurisdictionLabel || submitting}
+                            >
+                                {submitting ? 'Saving...' : editingUser ? 'Save Changes' : 'Register Official Account'}
+                            </button>
 
-                {/* Directory */}
-                <section className="xl:col-span-7 bg-white border border-light-dark rounded-xl overflow-hidden">
-                    <div className="p-4 border-b border-light-dark">
-                        <h2 className="text-lg font-bold text-dark">User Directory</h2>
-                    </div>
-                    {loadError && <p className="p-4 text-xs text-red-600">{loadError}</p>}
-                    <div className="overflow-x-auto">
-                        <table className="w-full text-left border-collapse">
-                            <thead className="bg-light border-b border-light-dark">
-                                <tr>
-                                    <th className="p-4 text-xs font-bold text-dark-light">Name &amp; Email</th>
-                                    <th className="p-4 text-xs font-bold text-dark-light">Role</th>
-                                    <th className="p-4 text-xs font-bold text-dark-light">Jurisdiction</th>
-                                    <th className="p-4 text-xs font-bold text-dark-light">Status</th>
-                                    <th className="p-4 text-xs font-bold text-dark-light text-center">Actions</th>
-                                </tr>
-                            </thead>
-                            <tbody className="divide-y divide-light-dark">
-                                {users.map((u) => (
-                                    <tr key={u.id} className="hover:bg-light transition-colors">
-                                        <td className="p-4">
-                                            <p className="text-sm font-bold text-dark">{u.name}</p>
-                                            <p className="text-xs text-dark-light">{u.email}</p>
-                                        </td>
-                                        <td className="p-4">
-                                            <span className="text-xs px-3 py-1 bg-light-dark rounded-full text-dark-light font-medium">{ROLE_LABELS[u.role]}</span>
-                                        </td>
-                                        <td className="p-4 text-sm text-dark">{jurisdictionLabelFor(u)}</td>
-                                        <td className="p-4">
-                                            <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold', STATUS_STYLES[u.status])}>
-                                                <span className={cn('w-1.5 h-1.5 rounded-full', STATUS_DOT[u.status])} />
-                                                {u.status === 'ACTIVE' ? 'Active' : 'Blocked'}
-                                            </span>
-                                        </td>
-                                        <td className="p-4">
-                                            <div className="flex items-center justify-center gap-2">
-                                                <button
-                                                    type="button"
-                                                    onClick={() => toggleBlocked(u)}
-                                                    className={cn(
-                                                        'p-1.5 rounded-lg transition-colors',
-                                                        u.status === 'BLOCKED' ? 'text-primary-dark hover:bg-primary-light/20' : 'text-red-600 hover:bg-red-100'
-                                                    )}
-                                                    title={u.status === 'BLOCKED' ? 'Unblock' : 'Block'}
-                                                >
-                                                    {u.status === 'BLOCKED' ? <CheckCircle2 size={16} /> : <Ban size={16} />}
-                                                </button>
-                                            </div>
-                                        </td>
-                                    </tr>
-                                ))}
-                            </tbody>
-                        </table>
-                    </div>
-                </section>
+                            {editingUser && (
+                                <button
+                                    type="button"
+                                    onClick={handleResetPassword}
+                                    disabled={submitting}
+                                    className="w-full py-3 border border-light-dark text-dark rounded-xl font-bold text-sm hover:bg-light active:scale-[0.98] transition-all disabled:opacity-50 flex items-center justify-center gap-2"
+                                >
+                                    <KeyRound size={16} /> Reset Password
+                                </button>
+                            )}
+                        </div>
+                    </form>
+                )}
+            </Offcanvas>
+        </div>
+    );
+}
+
+function PasswordReveal({ password, onDone }: { password: string; onDone: () => void }) {
+    const [copied, setCopied] = useState(false);
+
+    function copy() {
+        navigator.clipboard.writeText(password).then(() => {
+            setCopied(true);
+            setTimeout(() => setCopied(false), 1500);
+        });
+    }
+
+    return (
+        <div className="space-y-4">
+            <p className="text-sm text-dark-light">
+                Share this temporary password with the account holder out-of-band. It will not be shown again.
+            </p>
+            <div className="flex items-center gap-2 bg-light border border-light-dark rounded-lg p-3">
+                <code className="flex-1 text-sm font-bold text-dark break-all">{password}</code>
+                <button
+                    type="button"
+                    onClick={copy}
+                    className="p-2 text-primary-dark hover:bg-primary-light/20 rounded-lg transition-colors shrink-0"
+                    title="Copy"
+                >
+                    <Copy size={16} />
+                </button>
             </div>
+            {copied && <p className="text-xs text-primary-dark">Copied to clipboard.</p>}
+            <button
+                type="button"
+                onClick={onDone}
+                className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark active:scale-[0.98] transition-all"
+            >
+                Done
+            </button>
         </div>
     );
 }
