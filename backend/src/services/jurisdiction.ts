@@ -1,7 +1,7 @@
 import { reverseGeocode } from '../lib/nominatim';
 import {
     fetchRegions, fetchProvinces, fetchCitiesMunicipalitiesByProvince, fetchCitiesMunicipalitiesByRegion,
-    fetchDistricts, findBestMatch, normalizeName, NCR_REGION_CODE,
+    fetchDistricts, fetchCitiesMunicipalitiesByDistrict, findBestMatch, normalizeName, NCR_REGION_CODE,
 } from '../lib/psgc';
 
 // Nominatim calls NCR "Metro Manila"; PSGC calls it "NCR" — normalizeName alone won't bridge that.
@@ -56,16 +56,22 @@ export async function resolveJurisdiction(lat: number, lng: number): Promise<Jur
         : findBestMatch(regionCandidates, regions);
     if (!region) return unassigned(displayName);
 
-    // NCR has no provinces — its second-level unit is a district, not a province.
+    // NCR has no provinces — its hierarchy is region -> district -> city, so the district
+    // takes the province slot and the actual city still gets matched at municipality level.
     if (region.code === NCR_REGION_CODE) {
         const districts = await fetchDistricts(region.code);
         const district = findBestMatch(districtCandidates, districts);
         if (!district) return unassigned(displayName);
+
+        const municipalities = await fetchCitiesMunicipalitiesByDistrict(district.code);
+        const municipality = findBestMatch(municipalityCandidates, municipalities);
+        if (!municipality) return unassigned(displayName);
+
         return {
             jurisdictionStatus: 'ASSIGNED', locationLabel: displayName,
             regionCode: region.code, regionName: region.name,
-            provinceCode: null, provinceName: null,
-            municipalityCode: district.code, municipalityName: district.name,
+            provinceCode: district.code, provinceName: district.name,
+            municipalityCode: municipality.code, municipalityName: municipality.name,
         };
     }
 

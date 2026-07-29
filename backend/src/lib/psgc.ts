@@ -55,3 +55,8 @@ export const NCR_REGION_CODE = '130000000';
 export function fetchDistricts(regionCode: string): Promise<PsgcEntity[]> {
     return getJson(`/regions/${regionCode}/districts/`);
 }
+
+/** NCR's cities/municipalities sit under a district, not a province. */
+export function fetchCitiesMunicipalitiesByDistrict(districtCode: string): Promise<PsgcEntity[]> {
+    return getJson(`/districts/${districtCode}/cities-municipalities/`);
+}

@@ -3,8 +3,9 @@ import { UserPlus, ShieldCheck, Users as UsersIcon, MapPin, Ban, CheckCircle2, P
 import { cn } from '@/utils/cn';
 import { apiFetch } from '@/utils/api';
 import Offcanvas from '@/components/ui/Offcanvas';
+import { useNotifications } from '@/components/ui/Notifications';
 import {
-    fetchRegions, fetchProvinces, fetchCitiesMunicipalities, fetchDistricts, NCR_REGION_CODE,
+    fetchRegions, fetchProvinces, fetchCitiesMunicipalities, fetchDistricts, fetchCitiesMunicipalitiesByDistrict, NCR_REGION_CODE,
     type PsgcRegion, type PsgcProvince, type PsgcCityMunicipality,
 } from '@/utils/psgc';
 
@@ -46,6 +47,7 @@ function jurisdictionLabelFor(user: ApiUser): string {
 }
 
 export default function UsersPage() {
+    const { toast, confirm } = useNotifications();
     const [users, setUsers] = useState<ApiUser[]>([]);
     const [loadError, setLoadError] = useState('');
 
@@ -79,8 +81,11 @@ export default function UsersPage() {
         fetchRegions().then(setRegions).catch(() => setRegions([]));
     }, []);
 
-    // Fetches provinces whenever regionCode changes (user pick or prefill). Does NOT
-    // touch provinceCode/municipalityCode — callers reset those explicitly when it's
+    const isNCR = regionCode === NCR_REGION_CODE;
+
+    // Fetches the step-2 list whenever regionCode changes (user pick or prefill) — provinces
+    // normally, districts for NCR (region -> district -> city, same 3-level shape either way).
+    // Does NOT touch provinceCode/municipalityCode — callers reset those explicitly when it's
     // a real user change, so prefilling an edit can set all three without a race.
     useEffect(() => {
         if (!regionCode) {
@@ -89,46 +94,36 @@ export default function UsersPage() {
             return;
         }
         setLoadingProvinces(true);
-        fetchProvinces(regionCode)
-            .then(async (provs) => {
-                setProvinces(provs);
-                if (provs.length === 0) {
-                    // no provinces under this region -> NCR uses districts, others have municipalities directly under the region
-                    setLoadingMunicipalities(true);
-                    const munis = await (regionCode === NCR_REGION_CODE ? fetchDistricts(regionCode) : fetchCitiesMunicipalities(regionCode)).catch(() => []);
-                    setMunicipalities(munis);
-                    setLoadingMunicipalities(false);
-                }
-            })
+        (regionCode === NCR_REGION_CODE ? fetchDistricts(regionCode) : fetchProvinces(regionCode))
+            .then(setProvinces)
             .catch(() => setProvinces([]))
             .finally(() => setLoadingProvinces(false));
     }, [regionCode]);
 
-    // Fetches municipalities whenever provinceCode changes. Same no-side-effect rule as above.
+    // Fetches step-3 (cities/municipalities) whenever provinceCode changes. Same no-side-effect rule as above.
     useEffect(() => {
-        if (!provinceCode) return;
+        if (!provinceCode) { setMunicipalities([]); return; }
         setLoadingMunicipalities(true);
-        fetchCitiesMunicipalities(provinceCode)
+        (isNCR ? fetchCitiesMunicipalitiesByDistrict(provinceCode) : fetchCitiesMunicipalities(provinceCode))
             .then(setMunicipalities)
             .catch(() => setMunicipalities([]))
             .finally(() => setLoadingMunicipalities(false));
-    }, [provinceCode]);
+    }, [provinceCode, isNCR]);
 
     const selectedRegion = regions.find((r) => r.code === regionCode);
     const selectedProvince = provinces.find((p) => p.code === provinceCode);
     const selectedMunicipality = municipalities.find((m) => m.code === municipalityCode);
-    const regionHasNoProvinces = regionCode !== '' && !loadingProvinces && provinces.length === 0;
 
     const jurisdictionLabel = useMemo(() => {
         if (!selectedRegion) return '';
         if (selectedMunicipality) {
-            return regionHasNoProvinces
-                ? `${selectedMunicipality.name}, ${selectedRegion.name}`
-                : `${selectedMunicipality.name}, ${selectedProvince?.name}, ${selectedRegion.name}`;
+            return selectedProvince
+                ? `${selectedMunicipality.name}, ${selectedProvince.name}, ${selectedRegion.name}`
+                : `${selectedMunicipality.name}, ${selectedRegion.name}`;
         }
         if (selectedProvince) return `Entire ${selectedProvince.name}, ${selectedRegion.name}`;
         return `Entire ${selectedRegion.name}`;
-    }, [selectedRegion, selectedProvince, selectedMunicipality, regionHasNoProvinces]);
+    }, [selectedRegion, selectedProvince, selectedMunicipality]);
 
     const stats = useMemo(() => ({
         total: users.length,
@@ -204,6 +199,7 @@ export default function UsersPage() {
                 await apiFetch(`/api/users/${editingUser.id}`, { method: 'PATCH', body: JSON.stringify(payload) });
                 closePanel();
                 loadUsers();
+                toast('success', `${name.trim()}'s account was updated.`);
             } else {
                 const created = await apiFetch<ApiUser & { tempPassword: string }>('/api/users', {
                     method: 'POST',
@@ -211,9 +207,12 @@ export default function UsersPage() {
                 });
                 setRevealedPassword(created.tempPassword);
                 loadUsers();
+                toast('success', `${name.trim()}'s account was created.`);
             }
         } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : 'Failed to save account');
+            const message = err instanceof Error ? err.message : 'Failed to save account';
+            setSubmitError(message);
+            toast('error', message);
         } finally {
             setSubmitting(false);
         }
@@ -221,22 +220,50 @@ export default function UsersPage() {
 
     async function handleResetPassword() {
         if (!editingUser) return;
+        const ok = await confirm({
+            title: 'Reset password?',
+            message: `This generates a new temporary password for ${editingUser.name}, replacing their current one.`,
+            confirmLabel: 'Reset Password',
+            tone: 'danger',
+        });
+        if (!ok) return;
+
         setSubmitting(true);
         setSubmitError('');
         try {
             const result = await apiFetch<{ tempPassword: string }>(`/api/users/${editingUser.id}/reset-password`, { method: 'POST' });
             setRevealedPassword(result.tempPassword);
+            toast('success', `Password reset for ${editingUser.name}.`);
         } catch (err) {
-            setSubmitError(err instanceof Error ? err.message : 'Failed to reset password');
+            const message = err instanceof Error ? err.message : 'Failed to reset password';
+            setSubmitError(message);
+            toast('error', message);
         } finally {
             setSubmitting(false);
         }
     }
 
     async function toggleBlocked(user: ApiUser) {
-        const status: BackendStatus = user.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED';
-        await apiFetch(`/api/users/${user.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
-        loadUsers();
+        const willBlock = user.status !== 'BLOCKED';
+        const status: BackendStatus = willBlock ? 'BLOCKED' : 'ACTIVE';
+
+        if (willBlock) {
+            const ok = await confirm({
+                title: 'Block this account?',
+                message: `${user.name} will lose access to the console immediately.`,
+                confirmLabel: 'Block Account',
+                tone: 'danger',
+            });
+            if (!ok) return;
+        }
+
+        try {
+            await apiFetch(`/api/users/${user.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+            loadUsers();
+            toast('success', willBlock ? `${user.name} was blocked.` : `${user.name} was unblocked.`);
+        } catch (err) {
+            toast('error', err instanceof Error ? err.message : 'Failed to update status');
+        }
     }
 
     return (
@@ -379,8 +406,8 @@ export default function UsersPage() {
                                 </select>
                             </Field>
 
-                            {regionCode && !regionHasNoProvinces && (
-                                <Field label="Step 2: Province (optional — leave blank for entire region)">
+                            {regionCode && (
+                                <Field label={isNCR ? "Step 2: District (optional — leave blank for entire region)" : "Step 2: Province (optional — leave blank for entire region)"}>
                                     <select
                                         className="w-full bg-light border border-light-dark rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                                         value={provinceCode}
@@ -393,15 +420,15 @@ export default function UsersPage() {
                                 </Field>
                             )}
 
-                            {regionCode && (provinceCode || regionHasNoProvinces) && (
-                                <Field label={regionCode === NCR_REGION_CODE ? "Step 3: District (optional — leave blank for entire region)" : "Step 3: Municipality/City (optional — leave blank for entire province)"}>
+                            {regionCode && provinceCode && (
+                                <Field label={isNCR ? "Step 3: City/Municipality (optional — leave blank for entire district)" : "Step 3: Municipality/City (optional — leave blank for entire province)"}>
                                     <select
                                         className="w-full bg-light border border-light-dark rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                                         value={municipalityCode}
                                         onChange={(e) => setMunicipalityCode(e.target.value)}
                                         disabled={loadingMunicipalities}
                                     >
-                                        <option value={ENTIRE}>{regionHasNoProvinces ? 'Entire region' : 'Entire province'}</option>
+                                        <option value={ENTIRE}>{isNCR ? 'Entire district' : 'Entire province'}</option>
                                         {municipalities.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
                                     </select>
                                 </Field>

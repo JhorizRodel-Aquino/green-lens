@@ -49,14 +49,15 @@ test('resolveJurisdiction returns ASSIGNED on a full region/province/municipalit
     }
 });
 
-test('resolveJurisdiction uses districts (not provinces) for NCR', async () => {
+test('resolveJurisdiction uses district (province slot) + city (municipality slot) for NCR', async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fakeFetch({
         'nominatim.openstreetmap.org': {
-            address: { country_code: 'ph', city_district: 'First District', region: 'NCR' },
+            address: { country_code: 'ph', city: 'Manila', city_district: 'First District', region: 'NCR' },
             display_name: 'Manila, NCR, Philippines',
         },
         '/regions/130000000/districts/': [{ code: 'D1', name: 'First District' }],
+        '/districts/D1/cities-municipalities/': [{ code: 'MNL', name: 'City of Manila' }],
         '/regions/': [{ code: '130000000', name: 'NCR' }],
     });
 
@@ -66,8 +67,8 @@ test('resolveJurisdiction uses districts (not provinces) for NCR', async () => {
             jurisdictionStatus: 'ASSIGNED',
             locationLabel: 'Manila, NCR, Philippines',
             regionCode: '130000000', regionName: 'NCR',
-            provinceCode: null, provinceName: null,
-            municipalityCode: 'D1', municipalityName: 'First District',
+            provinceCode: 'D1', provinceName: 'First District',
+            municipalityCode: 'MNL', municipalityName: 'City of Manila',
         });
     } finally {
         globalThis.fetch = originalFetch;
