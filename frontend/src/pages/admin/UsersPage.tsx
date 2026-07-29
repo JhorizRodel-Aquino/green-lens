@@ -1,37 +1,59 @@
-import { useEffect, useMemo, useState } from 'react';
-import { UserPlus, ShieldCheck, Users as UsersIcon, MapPin, Pencil, Ban } from 'lucide-react';
+import { useEffect, useMemo, useState, type FormEvent } from 'react';
+import { UserPlus, ShieldCheck, Users as UsersIcon, MapPin, Ban, CheckCircle2 } from 'lucide-react';
 import { cn } from '@/utils/cn';
+import { apiFetch } from '@/utils/api';
 import {
     fetchRegions, fetchProvinces, fetchCitiesMunicipalities,
     type PsgcRegion, type PsgcProvince, type PsgcCityMunicipality,
 } from '@/utils/psgc';
 
-type Role = 'LGU Agent' | 'Admin';
-type Status = 'Active' | 'Pending';
+type BackendRole = 'ADMIN' | 'LGU_AGENT';
+type BackendStatus = 'ACTIVE' | 'PENDING' | 'BLOCKED';
 
-interface LguUser {
+interface ApiUser {
     id: string;
     name: string;
     email: string;
-    role: Role;
-    jurisdiction: string;
-    status: Status;
+    role: BackendRole;
+    status: BackendStatus;
+    regionCode: string | null;
+    regionName: string | null;
+    provinceCode: string | null;
+    provinceName: string | null;
+    municipalityCode: string | null;
+    municipalityName: string | null;
 }
 
 const ENTIRE = ''; // sentinel: jurisdiction stops at the parent level
 
-const INITIAL_USERS: LguUser[] = [
-    { id: '1', name: 'Juan Dela Cruz', email: 'j.delacruz@gov.ph', role: 'LGU Agent', jurisdiction: 'Quezon City, NCR', status: 'Active' },
-    { id: '2', name: 'Alicia Mercado', email: 'a.mercado@gov.ph', role: 'LGU Agent', jurisdiction: 'Cebu, Region VII', status: 'Active' },
-    { id: '3', name: 'Ricardo Santos', email: 'r.santos@gov.ph', role: 'Admin', jurisdiction: 'Entire Region XI - Davao Region', status: 'Pending' },
-];
+const ROLE_LABELS: Record<BackendRole, string> = { ADMIN: 'Admin', LGU_AGENT: 'LGU Agent' };
+const STATUS_STYLES: Record<BackendStatus, string> = {
+    ACTIVE: 'bg-primary-light/20 text-primary-dark',
+    PENDING: 'bg-secondary-light/30 text-secondary-dark',
+    BLOCKED: 'bg-red-100 text-red-600',
+};
+const STATUS_DOT: Record<BackendStatus, string> = { ACTIVE: 'bg-primary', PENDING: 'bg-secondary', BLOCKED: 'bg-red-600' };
+
+function jurisdictionLabelFor(user: ApiUser): string {
+    if (!user.regionName) return 'Entire Philippines';
+    if (user.municipalityName) {
+        return user.provinceName
+            ? `${user.municipalityName}, ${user.provinceName}, ${user.regionName}`
+            : `${user.municipalityName}, ${user.regionName}`;
+    }
+    if (user.provinceName) return `Entire ${user.provinceName}, ${user.regionName}`;
+    return `Entire ${user.regionName}`;
+}
 
 export default function UsersPage() {
-    const [users, setUsers] = useState<LguUser[]>(INITIAL_USERS);
+    const [users, setUsers] = useState<ApiUser[]>([]);
+    const [loadError, setLoadError] = useState('');
+    const [submitError, setSubmitError] = useState('');
+    const [submitting, setSubmitting] = useState(false);
 
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
-    const [role, setRole] = useState<Role>('LGU Agent');
+    const [role, setRole] = useState<BackendRole>('LGU_AGENT');
 
     const [regions, setRegions] = useState<PsgcRegion[]>([]);
     const [provinces, setProvinces] = useState<PsgcProvince[]>([]);
@@ -42,6 +64,12 @@ export default function UsersPage() {
     const [municipalityCode, setMunicipalityCode] = useState(ENTIRE);
     const [loadingProvinces, setLoadingProvinces] = useState(false);
     const [loadingMunicipalities, setLoadingMunicipalities] = useState(false);
+
+    function loadUsers() {
+        apiFetch<ApiUser[]>('/api/users').then(setUsers).catch((err) => setLoadError(err.message));
+    }
+
+    useEffect(loadUsers, []);
 
     useEffect(() => {
         fetchRegions().then(setRegions).catch(() => setRegions([]));
@@ -104,23 +132,48 @@ export default function UsersPage() {
 
     const stats = useMemo(() => ({
         total: users.length,
-        admins: users.filter((u) => u.role === 'Admin').length,
-        agents: users.filter((u) => u.role === 'LGU Agent').length,
+        admins: users.filter((u) => u.role === 'ADMIN').length,
+        agents: users.filter((u) => u.role === 'LGU_AGENT').length,
     }), [users]);
 
-    function handleSubmit(e: React.FormEvent) {
+    async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
-        if (!name.trim() || !email.trim() || !jurisdictionLabel) return;
+        if (!name.trim() || !email.trim() || !selectedRegion) return;
 
-        setUsers((prev) => [
-            ...prev,
-            { id: crypto.randomUUID(), name: name.trim(), email: email.trim(), role, jurisdiction: jurisdictionLabel, status: 'Pending' },
-        ]);
+        setSubmitting(true);
+        setSubmitError('');
+        try {
+            await apiFetch('/api/users', {
+                method: 'POST',
+                body: JSON.stringify({
+                    name: name.trim(),
+                    email: email.trim(),
+                    role,
+                    regionCode: selectedRegion.code,
+                    regionName: selectedRegion.name,
+                    provinceCode: selectedProvince?.code ?? null,
+                    provinceName: selectedProvince?.name ?? null,
+                    municipalityCode: selectedMunicipality?.code ?? null,
+                    municipalityName: selectedMunicipality?.name ?? null,
+                }),
+            });
 
-        setName('');
-        setEmail('');
-        setRole('LGU Agent');
-        setRegionCode('');
+            setName('');
+            setEmail('');
+            setRole('LGU_AGENT');
+            setRegionCode('');
+            loadUsers();
+        } catch (err) {
+            setSubmitError(err instanceof Error ? err.message : 'Failed to create account');
+        } finally {
+            setSubmitting(false);
+        }
+    }
+
+    async function toggleBlocked(user: ApiUser) {
+        const status: BackendStatus = user.status === 'BLOCKED' ? 'ACTIVE' : 'BLOCKED';
+        await apiFetch(`/api/users/${user.id}/status`, { method: 'PATCH', body: JSON.stringify({ status }) });
+        loadUsers();
     }
 
     return (
@@ -172,10 +225,10 @@ export default function UsersPage() {
                             <select
                                 className="w-full bg-light border border-light-dark rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary"
                                 value={role}
-                                onChange={(e) => setRole(e.target.value as Role)}
+                                onChange={(e) => setRole(e.target.value as BackendRole)}
                             >
-                                <option value="LGU Agent">LGU Agent</option>
-                                <option value="Admin">Admin</option>
+                                <option value="LGU_AGENT">LGU Agent</option>
+                                <option value="ADMIN">Admin</option>
                             </select>
                         </Field>
 
@@ -231,12 +284,14 @@ export default function UsersPage() {
                             )}
                         </div>
 
+                        {submitError && <p className="text-xs text-red-600">{submitError}</p>}
+
                         <button
                             type="submit"
                             className="w-full py-3 bg-primary text-white rounded-xl font-bold text-sm hover:bg-primary-dark active:scale-[0.98] transition-all disabled:opacity-50"
-                            disabled={!name.trim() || !email.trim() || !jurisdictionLabel}
+                            disabled={!name.trim() || !email.trim() || !jurisdictionLabel || submitting}
                         >
-                            Register Official Account
+                            {submitting ? 'Registering...' : 'Register Official Account'}
                         </button>
                     </form>
                 </section>
@@ -246,6 +301,7 @@ export default function UsersPage() {
                     <div className="p-4 border-b border-light-dark">
                         <h2 className="text-lg font-bold text-dark">User Directory</h2>
                     </div>
+                    {loadError && <p className="p-4 text-xs text-red-600">{loadError}</p>}
                     <div className="overflow-x-auto">
                         <table className="w-full text-left border-collapse">
                             <thead className="bg-light border-b border-light-dark">
@@ -265,25 +321,27 @@ export default function UsersPage() {
                                             <p className="text-xs text-dark-light">{u.email}</p>
                                         </td>
                                         <td className="p-4">
-                                            <span className="text-xs px-3 py-1 bg-light-dark rounded-full text-dark-light font-medium">{u.role}</span>
+                                            <span className="text-xs px-3 py-1 bg-light-dark rounded-full text-dark-light font-medium">{ROLE_LABELS[u.role]}</span>
                                         </td>
-                                        <td className="p-4 text-sm text-dark">{u.jurisdiction}</td>
+                                        <td className="p-4 text-sm text-dark">{jurisdictionLabelFor(u)}</td>
                                         <td className="p-4">
-                                            <span className={cn(
-                                                'inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold',
-                                                u.status === 'Active' ? 'bg-primary-light/20 text-primary-dark' : 'bg-secondary-light/30 text-secondary-dark'
-                                            )}>
-                                                <span className={cn('w-1.5 h-1.5 rounded-full', u.status === 'Active' ? 'bg-primary' : 'bg-secondary')} />
-                                                {u.status}
+                                            <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold', STATUS_STYLES[u.status])}>
+                                                <span className={cn('w-1.5 h-1.5 rounded-full', STATUS_DOT[u.status])} />
+                                                {u.status === 'ACTIVE' ? 'Active' : u.status === 'PENDING' ? 'Pending' : 'Blocked'}
                                             </span>
                                         </td>
                                         <td className="p-4">
                                             <div className="flex items-center justify-center gap-2">
-                                                <button type="button" className="p-1.5 text-primary-dark hover:bg-primary-light/20 rounded-lg transition-colors">
-                                                    <Pencil size={16} />
-                                                </button>
-                                                <button type="button" className="p-1.5 text-red-600 hover:bg-red-100 rounded-lg transition-colors">
-                                                    <Ban size={16} />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => toggleBlocked(u)}
+                                                    className={cn(
+                                                        'p-1.5 rounded-lg transition-colors',
+                                                        u.status === 'BLOCKED' ? 'text-primary-dark hover:bg-primary-light/20' : 'text-red-600 hover:bg-red-100'
+                                                    )}
+                                                    title={u.status === 'BLOCKED' ? 'Unblock' : 'Block'}
+                                                >
+                                                    {u.status === 'BLOCKED' ? <CheckCircle2 size={16} /> : <Ban size={16} />}
                                                 </button>
                                             </div>
                                         </td>
