@@ -23,7 +23,7 @@ router.post('/', async (req, res, next) => {
 
         const report = await prisma.report.create({
             data: { ...data, ...jurisdiction, images: { create: imageUrls.map((url) => ({ url })) } },
-            include: { images: true, status: true },
+            include: { images: true, status: true, notes: true },
         });
         res.status(201).json(report);
     } catch (err) {
@@ -123,7 +123,7 @@ router.patch('/:id/status', requireUser, async (req, res, next) => {
             data: body.action === 'ACCEPT'
                 ? { statusValue: 'REPORTED' }
                 : { statusValue: body.reason, flaggedAt: new Date() },
-            include: { images: true, status: true },
+            include: { images: true, status: true, notes: true },
         });
         res.json(report);
     } catch (err) {

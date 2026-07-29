@@ -57,7 +57,7 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
     };
 
     return (
-        <div className="fixed inset-y-0 right-0 z-[1002] flex w-full max-w-sm flex-col bg-white shadow-xl border-l border-light-dark">
+        <div className="fixed inset-y-0 right-0 z-[1002] flex w-full max-w-md flex-col bg-white shadow-xl border-l border-light-dark">
             <div className="flex items-center justify-between h-16 px-4 border-b border-light-dark shrink-0">
                 <h2 className="text-lg font-semibold text-dark">Report Details</h2>
                 <button type="button" onClick={onClose} aria-label="Close" className="text-dark-light hover:text-dark">
@@ -170,59 +170,62 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
                 </div>
             </div>
 
-            <div className="shrink-0 border-t border-light-dark p-4 flex gap-2 relative">
+            <div className="shrink-0 border-t border-light-dark p-4 space-y-2 relative">
                 {report.status === 'pending' && (
                     <Button
                         variant="outline"
                         leftIcon={CircleCheck}
-                        className="rounded-lg whitespace-nowrap"
+                        fullWidth
+                        className="rounded-lg"
                         onClick={handleAccept}
                     >
                         Accept
                     </Button>
                 )}
 
-                <Button
-                    variant="primary"
-                    leftIcon={CircleCheck}
-                    fullWidth
-                    className="rounded-lg"
-                    onClick={() => {
-                        onClose();
-                        navigate(`/admin/reports/${report.id}`);
-                    }}
-                >
-                    {report.status === 'resolved' ? 'View Resolution' : 'Resolve'}
-                </Button>
-
-                <div className="relative">
+                <div className="flex gap-2">
                     <Button
-                        variant="outline"
-                        rightIcon={ChevronDown}
-                        className="rounded-lg whitespace-nowrap"
-                        onClick={() => setFlagMenuOpen((v) => !v)}
+                        variant="primary"
+                        leftIcon={CircleCheck}
+                        fullWidth
+                        className="rounded-lg"
+                        onClick={() => {
+                            onClose();
+                            navigate(`/admin/reports/${report.id}`);
+                        }}
                     >
-                        <Flag size={16} />
-                        Flag
+                        {report.status === 'resolved' ? 'View Resolution' : 'Resolve'}
                     </Button>
 
-                    {flagMenuOpen && (
-                        <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-light-dark bg-white shadow-lg overflow-hidden">
-                            {(Object.keys(FLAG_REASON_LABELS) as FlagReasonCode[]).map((reason, i) => (
-                                <button
-                                    key={reason}
-                                    type="button"
-                                    onClick={() => handleFlag(reason)}
-                                    className={cn(
-                                        'w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light',
-                                        i > 0 && 'border-t border-light-dark'
-                                    )}
-                                >
-                                    {FLAG_REASON_LABELS[reason]}
-                                </button>
-                            ))}
-                        </div>
-                    )}
+                    <div className="relative shrink-0">
+                        <Button
+                            variant="outline"
+                            rightIcon={ChevronDown}
+                            className="rounded-lg whitespace-nowrap"
+                            onClick={() => setFlagMenuOpen((v) => !v)}
+                        >
+                            <Flag size={16} />
+                            Flag
+                        </Button>
+
+                        {flagMenuOpen && (
+                            <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-light-dark bg-white shadow-lg overflow-hidden">
+                                {(Object.keys(FLAG_REASON_LABELS) as FlagReasonCode[]).map((reason, i) => (
+                                    <button
+                                        key={reason}
+                                        type="button"
+                                        onClick={() => handleFlag(reason)}
+                                        className={cn(
+                                            'w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light',
+                                            i > 0 && 'border-t border-light-dark'
+                                        )}
+                                    >
+                                        {FLAG_REASON_LABELS[reason]}
+                                    </button>
+                                ))}
+                            </div>
+                        )}
+                    </div>
                 </div>
             </div>
 

@@ -61,7 +61,7 @@ export default function ReportDetailPage() {
     }
 
     const beforeImages = report.imageUrls ?? [];
-    const activeAfterImages = report.resolutionProofUrls ?? afterImages;
+    const activeAfterImages = report.resolutionProofUrls?.length ? report.resolutionProofUrls : afterImages;
 
     const handleFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
         addAfterFiles(Array.from(e.target.files ?? []));

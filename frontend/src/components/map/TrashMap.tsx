@@ -229,7 +229,7 @@ export const TrashMap = ({
       <div
         className={cn(
           'absolute top-4 right-4 z-[1000] flex gap-1 rounded-lg border border-light-dark bg-white p-1 shadow-sm transition-all duration-200',
-          isDetailPanelOpen && 'md:right-[calc(24rem+1rem)]'
+          isDetailPanelOpen && 'md:right-[calc(28rem+1rem)]'
         )}
       >
         <button

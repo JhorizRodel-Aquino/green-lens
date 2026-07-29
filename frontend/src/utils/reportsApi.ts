@@ -46,7 +46,7 @@ function toTrashReport(r: ApiReport): TrashReport {
         flagReason: isFlagged ? (r.statusValue as FlagReasonCode) : undefined,
         flaggedAt: r.flaggedAt ?? undefined,
         lguActionLogged: r.lguActionLogged,
-        remarks: r.notes.map((n) => ({
+        remarks: (r.notes ?? []).map((n) => ({
             text: n.kind === 'REOPEN' ? `Reopened: ${n.text}` : n.text,
             createdAt: n.createdAt,
         })),
