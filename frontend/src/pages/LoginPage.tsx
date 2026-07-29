@@ -1,11 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogIn, ShieldCheck, MapPin } from 'lucide-react';
+import { LogIn, ShieldCheck, MapPin, Crown } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
 
 const DEMO_ACCOUNTS = [
+    { label: 'Super Admin', email: 'superadmin@greenlens.local', password: 'change-me-immediately', icon: Crown },
     { label: 'Admin', email: 'admin@greenlens.local', password: 'admin123', icon: ShieldCheck },
-    { label: 'LGU Agent (Naic)', email: 'lgu.naic@greenlens.local', password: 'naic123', icon: MapPin },
+    { label: 'LGU (Naic)', email: 'lgu.naic@greenlens.local', password: 'naic123', icon: MapPin },
 ];
 
 export default function LoginPage() {
@@ -55,7 +56,7 @@ export default function LoginPage() {
 
                 <div className="mb-6 space-y-2">
                     <p className="text-xs font-semibold text-dark-light uppercase tracking-wide">Quick demo login</p>
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-3 gap-2">
                         {DEMO_ACCOUNTS.map(({ label, email: demoEmail, password: demoPassword, icon: Icon }) => (
                             <button
                                 key={demoEmail}
