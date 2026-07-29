@@ -172,7 +172,7 @@ export default function DashboardPage() {
                     </div>
                 </div>
 
-                <div className="rounded-xl border border-light-dark border-t-2 border-t-red-500 bg-white p-4 flex flex-col">
+                <div className="rounded-xl border border-light-dark  bg-white p-4 flex flex-col">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-dark-light mb-3">Top 10: Bottlenecks</h4>
                     <div className="space-y-3 flex-1">
                         {BOTTLENECKS.map((b) => (
