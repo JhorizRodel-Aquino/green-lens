@@ -20,7 +20,6 @@ enum Role {
 
 enum UserStatus {
   ACTIVE
-  PENDING
   BLOCKED
 }
 
@@ -30,7 +29,7 @@ model User {
   email          String     @unique
   passwordHash   String
   role           Role
-  status         UserStatus @default(PENDING)
+  status         UserStatus @default(ACTIVE)
 
   // Jurisdiction, from PSGC (https://psgc.gitlab.io/api/). Null region = SUPER_ADMIN
   // (no jurisdiction at all). Province/municipality null = "entire region" / "entire province".

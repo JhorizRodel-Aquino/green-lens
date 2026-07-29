@@ -8,7 +8,7 @@ import {
 } from '@/utils/psgc';
 
 type BackendRole = 'ADMIN' | 'LGU_AGENT';
-type BackendStatus = 'ACTIVE' | 'PENDING' | 'BLOCKED';
+type BackendStatus = 'ACTIVE' | 'BLOCKED';
 
 interface ApiUser {
     id: string;
@@ -29,10 +29,9 @@ const ENTIRE = ''; // sentinel: jurisdiction stops at the parent level
 const ROLE_LABELS: Record<BackendRole, string> = { ADMIN: 'Admin', LGU_AGENT: 'LGU Agent' };
 const STATUS_STYLES: Record<BackendStatus, string> = {
     ACTIVE: 'bg-primary-light/20 text-primary-dark',
-    PENDING: 'bg-secondary-light/30 text-secondary-dark',
     BLOCKED: 'bg-red-100 text-red-600',
 };
-const STATUS_DOT: Record<BackendStatus, string> = { ACTIVE: 'bg-primary', PENDING: 'bg-secondary', BLOCKED: 'bg-red-600' };
+const STATUS_DOT: Record<BackendStatus, string> = { ACTIVE: 'bg-primary', BLOCKED: 'bg-red-600' };
 
 function jurisdictionLabelFor(user: ApiUser): string {
     if (!user.regionName) return 'Entire Philippines';
@@ -327,7 +326,7 @@ export default function UsersPage() {
                                         <td className="p-4">
                                             <span className={cn('inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold', STATUS_STYLES[u.status])}>
                                                 <span className={cn('w-1.5 h-1.5 rounded-full', STATUS_DOT[u.status])} />
-                                                {u.status === 'ACTIVE' ? 'Active' : u.status === 'PENDING' ? 'Pending' : 'Blocked'}
+                                                {u.status === 'ACTIVE' ? 'Active' : 'Blocked'}
                                             </span>
                                         </td>
                                         <td className="p-4">

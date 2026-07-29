@@ -36,7 +36,7 @@ router.post('/', async (req, res, next) => {
         const passwordHash = await bcrypt.hash(tempPassword, 10);
 
         const user = await prisma.user.create({
-            data: { ...data, passwordHash, status: 'PENDING' },
+            data: { ...data, passwordHash, status: 'ACTIVE' },
         });
 
         res.status(201).json({ ...toPublicUser(user), tempPassword });
@@ -47,7 +47,7 @@ router.post('/', async (req, res, next) => {
 
 router.patch('/:id/status', async (req, res, next) => {
     try {
-        const status = z.enum(['ACTIVE', 'PENDING', 'BLOCKED']).parse(req.body.status);
+        const status = z.enum(['ACTIVE', 'BLOCKED']).parse(req.body.status);
         const user = await prisma.user.update({ where: { id: req.params.id }, data: { status } });
         res.json(toPublicUser(user));
     } catch (err) {
