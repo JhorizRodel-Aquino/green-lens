@@ -51,6 +51,29 @@ router.get('/', requireUser, async (req, res, next) => {
     }
 });
 
+const resolveReportSchema = z.object({
+    proofImageUrls: z.array(z.string()).min(1),
+});
+
+router.patch('/:id/resolve', requireUser, async (req, res, next) => {
+    try {
+        const { proofImageUrls } = resolveReportSchema.parse(req.body);
+        const report = await prisma.report.update({
+            where: { id: req.params.id as string },
+            data: {
+                status: 'RESOLVED',
+                resolvedAt: new Date(),
+                lguActionLogged: true,
+                images: { create: proofImageUrls.map((url) => ({ url, kind: 'RESOLUTION_PROOF' as const })) },
+            },
+            include: { images: true },
+        });
+        res.json(report);
+    } catch (err) {
+        next(err);
+    }
+});
+
 const setStatusSchema = z.discriminatedUnion('action', [
     z.object({ action: z.literal('ACCEPT') }),
     z.object({ action: z.literal('FLAG'), flagReason: z.enum(['FALSE_REPORT', 'OUT_OF_CONTROL']) }),

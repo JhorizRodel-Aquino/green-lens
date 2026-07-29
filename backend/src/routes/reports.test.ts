@@ -130,6 +130,41 @@ test('PATCH /api/reports/:id/status accepts a report (PENDING -> REPORTED)', asy
     }
 });
 
+test('PATCH /api/reports/:id/resolve tags proof images separately from user uploads', async () => {
+    const agent = await prisma.user.create({
+        data: {
+            name: 'Resolve Agent', email: `resolve-${Date.now()}@gov.ph`, passwordHash: 'x',
+            role: 'LGU_AGENT', status: 'ACTIVE', regionCode: 'R4A', regionName: 'Region IV-A',
+        },
+    });
+    const report = await prisma.report.create({
+        data: {
+            lat: 14.32, lng: 120.77, details: 'cleaned up', locationLabel: 'Somewhere, Philippines',
+            images: { create: [{ url: 'https://example.com/user-photo.jpg' }] },
+        },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/resolve`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': agent.id },
+                body: JSON.stringify({ proofImageUrls: ['https://example.com/proof.jpg'] }),
+            });
+            assert.equal(res.status, 200);
+            const updated = (await res.json()) as { status: string; resolvedAt: string | null; images: { url: string; kind: string }[] };
+            assert.equal(updated.status, 'RESOLVED');
+            assert.ok(updated.resolvedAt);
+            const byKind = Object.fromEntries(updated.images.map((i) => [i.url, i.kind]));
+            assert.equal(byKind['https://example.com/user-photo.jpg'], 'USER_UPLOAD');
+            assert.equal(byKind['https://example.com/proof.jpg'], 'RESOLUTION_PROOF');
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: agent.id } });
+    }
+});
+
 test('PATCH /api/reports/:id/status flags a report with a reason', async () => {
     const agent = await prisma.user.create({
         data: {

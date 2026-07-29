@@ -66,6 +66,11 @@ enum JurisdictionStatus {
   UNASSIGNED
 }
 
+enum ImageKind {
+  USER_UPLOAD
+  RESOLUTION_PROOF
+}
+
 model Report {
   id                   String              @id @default(uuid())
   lat                  Float
@@ -80,7 +85,6 @@ model Report {
   flagReason           FlagReason?
   flaggedAt            DateTime?
   lguActionLogged      Boolean             @default(false)
-  resolutionProofUrls  String[]
 
   regionCode           String?
   regionName           String?
@@ -92,9 +96,10 @@ model Report {
 }
 
 model ReportImage {
-  id        String   @id @default(uuid())
+  id        String    @id @default(uuid())
   url       String
+  kind      ImageKind @default(USER_UPLOAD)
   reportId  String
-  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
-  createdAt DateTime @default(now())
+  report    Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  createdAt DateTime  @default(now())
 }
