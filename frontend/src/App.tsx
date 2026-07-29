@@ -2,6 +2,7 @@ import './App.css';
 import 'leaflet/dist/leaflet.css';
 import { BrowserRouter, Routes, Route } from 'react-router-dom';
 import { AuthProvider } from '@/context/AuthContext';
+import { NotificationProvider } from '@/components/ui/Notifications';
 import UserPage from '@/pages/user/UserPage';
 import IconGallery from '@/pages/IconGallery';
 import LoginPage from '@/pages/LoginPage';
@@ -18,6 +19,7 @@ import SettingsPage from '@/pages/admin/SettingsPage';
 function App() {
   return (
     <BrowserRouter>
+      <NotificationProvider>
       <AuthProvider>
         <Routes>
           <Route path="/" element={<UserPage />} />
@@ -36,6 +38,7 @@ function App() {
           <Route path="/icons" element={<IconGallery />} />
         </Routes>
       </AuthProvider>
+      </NotificationProvider>
     </BrowserRouter>
   );
 }

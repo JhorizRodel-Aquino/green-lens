@@ -5,6 +5,7 @@ import {
     FileWarning, ShieldAlert, MessageSquarePlus, RotateCcw,
 } from 'lucide-react';
 import { useReports } from '@/context/ReportsContext';
+import { useNotifications } from '@/components/ui/Notifications';
 import { FLAG_REASON_LABELS } from '@/components/map/TrashMap';
 import { Button } from '@/components/ui/Button';
 import ReportCamera from '@/components/ReportCamera';
@@ -21,6 +22,7 @@ export default function ReportDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
     const { reports, resolveReport, reopenReport, addRemark } = useReports();
+    const { toast, confirm } = useNotifications();
     const [afterImages, setAfterImages] = useState<string[]>([]);
     const [showCamera, setShowCamera] = useState(false);
     const [remarkText, setRemarkText] = useState('');
@@ -74,16 +76,34 @@ export default function ReportDetailPage() {
 
     const handleResolve = async () => {
         if (afterImages.length === 0) return;
-        await resolveReport(report.id, afterImages, resolveNote.trim() || undefined);
-        navigate('/admin/reports');
+        try {
+            await resolveReport(report.id, afterImages, resolveNote.trim() || undefined);
+            toast('success', 'Report marked as resolved.');
+            navigate('/admin/reports');
+        } catch (err) {
+            toast('error', err instanceof Error ? err.message : 'Failed to resolve report');
+        }
     };
 
     const handleReopen = async () => {
         const text = reopenNote.trim();
         if (!text) return;
-        await reopenReport(report.id, text);
-        setReopenNote('');
-        setShowReopenForm(false);
+        const ok = await confirm({
+            title: 'Reopen this report?',
+            message: 'This moves it back to Unresolved so it can be worked on again.',
+            confirmLabel: 'Reopen Report',
+            tone: 'danger',
+        });
+        if (!ok) return;
+
+        try {
+            await reopenReport(report.id, text);
+            setReopenNote('');
+            setShowReopenForm(false);
+            toast('success', 'Report reopened.');
+        } catch (err) {
+            toast('error', err instanceof Error ? err.message : 'Failed to reopen report');
+        }
     };
 
     const handleAddRemark = () => {

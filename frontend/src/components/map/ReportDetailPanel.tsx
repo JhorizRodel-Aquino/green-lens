@@ -4,6 +4,7 @@ import { X, MapPin, ImageOff, CircleCheck, Flag, ChevronDown, ChevronLeft, Chevr
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
 import { useReports } from '@/context/ReportsContext';
+import { useNotifications } from '@/components/ui/Notifications';
 import { FLAG_REASON_LABELS, type FlagReasonCode } from './TrashMap';
 import ImageLightbox from './ImageLightbox';
 
@@ -14,6 +15,7 @@ type ReportDetailPanelProps = {
 
 export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPanelProps) {
     const { reports, acceptReport, flagReport } = useReports();
+    const { toast, confirm } = useNotifications();
     const navigate = useNavigate();
     const [flagMenuOpen, setFlagMenuOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -26,6 +28,33 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
 
     const showPrev = () => setCarouselIndex((i) => (i - 1 + images.length) % images.length);
     const showNext = () => setCarouselIndex((i) => (i + 1) % images.length);
+
+    const handleAccept = async () => {
+        try {
+            await acceptReport(report.id);
+            toast('success', 'Report accepted.');
+        } catch (err) {
+            toast('error', err instanceof Error ? err.message : 'Failed to accept report');
+        }
+    };
+
+    const handleFlag = async (reason: FlagReasonCode) => {
+        setFlagMenuOpen(false);
+        const ok = await confirm({
+            title: 'Flag this report?',
+            message: `This marks it as "${FLAG_REASON_LABELS[reason]}" instead of a valid report.`,
+            confirmLabel: 'Flag Report',
+            tone: 'danger',
+        });
+        if (!ok) return;
+
+        try {
+            await flagReport(report.id, reason);
+            toast('success', 'Report flagged.');
+        } catch (err) {
+            toast('error', err instanceof Error ? err.message : 'Failed to flag report');
+        }
+    };
 
     return (
         <div className="fixed inset-y-0 right-0 z-[1002] flex w-full max-w-sm flex-col bg-white shadow-xl border-l border-light-dark">
@@ -147,7 +176,7 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
                         variant="outline"
                         leftIcon={CircleCheck}
                         className="rounded-lg whitespace-nowrap"
-                        onClick={() => acceptReport(report.id)}
+                        onClick={handleAccept}
                     >
                         Accept
                     </Button>
@@ -183,10 +212,7 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
                                 <button
                                     key={reason}
                                     type="button"
-                                    onClick={() => {
-                                        setFlagMenuOpen(false);
-                                        flagReport(report.id, reason);
-                                    }}
+                                    onClick={() => handleFlag(reason)}
                                     className={cn(
                                         'w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light',
                                         i > 0 && 'border-t border-light-dark'
