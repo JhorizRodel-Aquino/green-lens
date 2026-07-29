@@ -3,7 +3,6 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
-import { generateInitialPassword } from '../lib/initialPassword';
 
 const router = Router();
 
@@ -32,8 +31,8 @@ router.post('/', async (req, res, next) => {
     try {
         const data = createUserSchema.parse(req.body);
 
-        // ponytail: no invite-email flow yet, seed a predictable first-login password the admin relays out-of-band
-        const tempPassword = generateInitialPassword(data.name, data.regionName);
+        // ponytail: no invite-email flow yet, seed a random temp password the admin relays out-of-band
+        const tempPassword = crypto.randomBytes(9).toString('base64url');
         const passwordHash = await bcrypt.hash(tempPassword, 10);
 
         const user = await prisma.user.create({
