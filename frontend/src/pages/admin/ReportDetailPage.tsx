@@ -5,6 +5,7 @@ import {
     FileWarning, ShieldAlert, MessageSquarePlus,
 } from 'lucide-react';
 import { useReports } from '@/context/ReportsContext';
+import { FLAG_REASON_LABELS } from '@/components/map/TrashMap';
 import { Button } from '@/components/ui/Button';
 import ReportCamera from '@/components/ReportCamera';
 import ImageCarousel from '@/components/admin/ImageCarousel';
@@ -68,9 +69,9 @@ export default function ReportDetailPage() {
         addAfterFiles(Array.from(e.dataTransfer.files));
     };
 
-    const handleResolve = () => {
+    const handleResolve = async () => {
         if (afterImages.length === 0) return;
-        resolveReport(report.id, afterImages);
+        await resolveReport(report.id, afterImages);
         navigate('/admin/reports');
     };
 
@@ -106,7 +107,8 @@ export default function ReportDetailPage() {
                                     'rounded-full px-3 py-1 text-xs font-semibold capitalize',
                                     report.status === 'resolved' && 'bg-primary-light/20 text-primary-dark',
                                     report.status === 'flagged' && 'bg-secondary-light/30 text-secondary-dark',
-                                    report.status === 'unresolved' && 'bg-light-dark text-dark-light'
+                                    report.status === 'unresolved' && 'bg-light-dark text-dark-light',
+                                    report.status === 'pending' && 'bg-yellow-100 text-yellow-700'
                                 )}>
                                     {report.status}
                                 </span>
@@ -136,7 +138,7 @@ export default function ReportDetailPage() {
                         {report.flagReason && (
                             <div className="flex items-center gap-2 rounded-lg bg-secondary-light/20 px-3 py-2 text-sm text-secondary-dark">
                                 <ShieldAlert size={16} className="shrink-0" />
-                                Flagged as: {report.flagReason === 'false_report' ? 'False report' : 'Out of our control'}
+                                Flagged as: {FLAG_REASON_LABELS[report.flagReason]}
                             </div>
                         )}
                     </div>

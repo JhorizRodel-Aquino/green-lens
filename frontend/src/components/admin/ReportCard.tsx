@@ -11,6 +11,7 @@ const STATUS_CLASSES: Record<TrashReport['status'], string> = {
     resolved: 'bg-primary-light/20 text-primary-dark',
     flagged: 'bg-secondary-light/30 text-secondary-dark',
     unresolved: 'bg-light-dark text-dark-light',
+    pending: 'bg-yellow-100 text-yellow-700',
 };
 
 function timeAgo(iso: string): string {

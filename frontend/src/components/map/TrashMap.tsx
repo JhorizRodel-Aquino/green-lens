@@ -132,7 +132,18 @@ const selectedSeverityIcons: Record<'HIGH' | 'LOW', L.DivIcon> = {
 };
 
 // Types for your Trash Reports
-export type ReportStatus = 'unresolved' | 'flagged' | 'resolved';
+export type ReportStatus = 'pending' | 'unresolved' | 'flagged' | 'resolved';
+
+// Mirrors the backend's ReportStatus flag values (see backend/prisma/schema.prisma)
+export type FlagReasonCode = 'false_report' | 'duplicate_report' | 'minor_litter' | 'already_resolved' | 'private_property';
+
+export const FLAG_REASON_LABELS: Record<FlagReasonCode, string> = {
+  false_report: 'False report',
+  duplicate_report: 'Duplicate report',
+  minor_litter: 'Minor litter',
+  already_resolved: 'Already resolved',
+  private_property: 'Private property',
+};
 
 export type TrashReport = {
   id: string;
@@ -145,7 +156,7 @@ export type TrashReport = {
   status: ReportStatus;
   createdAt: string; // ISO timestamp
   resolvedAt?: string; // ISO timestamp, set when status becomes 'resolved'
-  flagReason?: 'false_report' | 'out_of_control';
+  flagReason?: FlagReasonCode;
   flaggedAt?: string; // ISO timestamp, set when status becomes 'flagged'
   lguActionLogged?: boolean;
   resolutionProofUrls?: string[]; // "After" photos captured/uploaded when resolving

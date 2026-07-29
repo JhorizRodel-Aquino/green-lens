@@ -4,6 +4,7 @@ import { X, MapPin, ImageOff, CircleCheck, Flag, ChevronDown, ChevronLeft, Chevr
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
 import { useReports } from '@/context/ReportsContext';
+import { FLAG_REASON_LABELS, type FlagReasonCode } from './TrashMap';
 import ImageLightbox from './ImageLightbox';
 
 type ReportDetailPanelProps = {
@@ -12,7 +13,7 @@ type ReportDetailPanelProps = {
 };
 
 export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPanelProps) {
-    const { reports, flagReport } = useReports();
+    const { reports, acceptReport, flagReport } = useReports();
     const navigate = useNavigate();
     const [flagMenuOpen, setFlagMenuOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
@@ -50,7 +51,8 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
                             'inline-block rounded-full px-3 py-1 text-xs font-semibold capitalize',
                             report.status === 'resolved' && 'bg-primary-light/20 text-primary-dark',
                             report.status === 'flagged' && 'bg-secondary-light/30 text-secondary-dark',
-                            report.status === 'unresolved' && 'bg-light-dark text-dark-light'
+                            report.status === 'unresolved' && 'bg-light-dark text-dark-light',
+                            report.status === 'pending' && 'bg-yellow-100 text-yellow-700'
                         )}
                     >
                         {report.status}
@@ -140,6 +142,17 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
             </div>
 
             <div className="shrink-0 border-t border-light-dark p-4 flex gap-2 relative">
+                {report.status === 'pending' && (
+                    <Button
+                        variant="outline"
+                        leftIcon={CircleCheck}
+                        className="rounded-lg whitespace-nowrap"
+                        onClick={() => acceptReport(report.id)}
+                    >
+                        Accept
+                    </Button>
+                )}
+
                 <Button
                     variant="primary"
                     leftIcon={CircleCheck}
@@ -166,26 +179,22 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
 
                     {flagMenuOpen && (
                         <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-light-dark bg-white shadow-lg overflow-hidden">
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setFlagMenuOpen(false);
-                                    flagReport(report.id, 'false_report');
-                                }}
-                                className="w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light"
-                            >
-                                False report
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setFlagMenuOpen(false);
-                                    flagReport(report.id, 'out_of_control');
-                                }}
-                                className="w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light border-t border-light-dark"
-                            >
-                                Out of our control
-                            </button>
+                            {(Object.keys(FLAG_REASON_LABELS) as FlagReasonCode[]).map((reason, i) => (
+                                <button
+                                    key={reason}
+                                    type="button"
+                                    onClick={() => {
+                                        setFlagMenuOpen(false);
+                                        flagReport(report.id, reason);
+                                    }}
+                                    className={cn(
+                                        'w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light',
+                                        i > 0 && 'border-t border-light-dark'
+                                    )}
+                                >
+                                    {FLAG_REASON_LABELS[reason]}
+                                </button>
+                            ))}
                         </div>
                     )}
                 </div>

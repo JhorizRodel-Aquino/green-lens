@@ -8,17 +8,18 @@ import DateRangeFilter from '@/components/admin/DateRangeFilter';
 import { cn } from '@/utils/cn';
 import { formatAvgResolutionTime, isWithinDatePreset, startOfToday, type DatePreset } from '@/utils/reportStats';
 
-type Tab = 'all' | 'unresolved' | 'flagged' | 'resolved';
+type Tab = 'all' | 'pending' | 'unresolved' | 'flagged' | 'resolved';
 
 const TABS: { key: Tab; label: string }[] = [
     { key: 'all', label: 'All' },
+    { key: 'pending', label: 'Pending' },
     { key: 'unresolved', label: 'Unresolved' },
     { key: 'flagged', label: 'Flagged' },
     { key: 'resolved', label: 'Resolved' },
 ];
 
 export default function ReportsPage() {
-    const { reports } = useReports();
+    const { reports, loading, error } = useReports();
     const [activeTab, setActiveTab] = useState<Tab>('all');
     const [datePreset, setDatePreset] = useState<DatePreset>('month');
     const [customFrom, setCustomFrom] = useState('');
@@ -48,6 +49,9 @@ export default function ReportsPage() {
         <>
         <div className="p-4 md:p-6 space-y-6">
             <h1 className="text-2xl font-bold text-dark">Reports</h1>
+
+            {error && <p className="text-sm text-red-600">{error}</p>}
+            {loading && reports.length === 0 && <p className="text-sm text-dark-light">Loading reports...</p>}
 
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
                 <StatCard label="High Severity" value={String(stats.highSeverityOpen)} icon={AlertTriangle} tone="danger" />

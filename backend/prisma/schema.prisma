@@ -49,20 +49,17 @@ enum Severity {
   LOW
 }
 
-enum ReportStatus {
-  PENDING
-  REPORTED
-  RESOLVED
-  FALSE_REPORT
-  DUPLICATE_REPORT
-  MINOR_LITTER
-  ALREADY_RESOLVED
-  PRIVATE_PROPERTY
-}
-
 enum ReportValidity {
   VALID
   FLAGGED
+}
+
+// Lookup table for report statuses: which ones count as "valid" vs "flagged"
+// lives in data, not in code, so a query can join/filter on validity directly.
+model ReportStatusCode {
+  name     String         @id
+  validity ReportValidity
+  reports  Report[]
 }
 
 enum JurisdictionStatus {
@@ -83,8 +80,8 @@ model Report {
   details              String
   locationLabel        String
   images               ReportImage[]
-  status               ReportStatus        @default(PENDING)
-  validity             ReportValidity      @default(VALID)
+  statusName           String              @default("PENDING")
+  status               ReportStatusCode    @relation(fields: [statusName], references: [name])
   createdAt            DateTime            @default(now())
   resolvedAt           DateTime?
   flaggedAt            DateTime?

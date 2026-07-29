@@ -23,7 +23,7 @@ router.post('/', async (req, res, next) => {
 
         const report = await prisma.report.create({
             data: { ...data, ...jurisdiction, images: { create: imageUrls.map((url) => ({ url })) } },
-            include: { images: true },
+            include: { images: true, status: true },
         });
         res.status(201).json(report);
     } catch (err) {
@@ -39,12 +39,12 @@ router.get('/', requireUser, async (req, res, next) => {
     try {
         // A report stuck in PENDING for a day auto-becomes REPORTED (LGU didn't act in time).
         await prisma.report.updateMany({
-            where: { status: 'PENDING', createdAt: { lt: new Date(Date.now() - PENDING_TIMEOUT_MS) } },
-            data: { status: 'REPORTED' },
+            where: { statusName: 'PENDING', createdAt: { lt: new Date(Date.now() - PENDING_TIMEOUT_MS) } },
+            data: { statusName: 'REPORTED' },
         });
 
         const where = buildJurisdictionFilter(req.user);
-        const reports = await prisma.report.findMany({ where, include: { images: true }, orderBy: { createdAt: 'desc' } });
+        const reports = await prisma.report.findMany({ where, include: { images: true, status: true }, orderBy: { createdAt: 'desc' } });
         res.json(reports);
     } catch (err) {
         next(err);
@@ -61,12 +61,12 @@ router.patch('/:id/resolve', requireUser, async (req, res, next) => {
         const report = await prisma.report.update({
             where: { id: req.params.id as string },
             data: {
-                status: 'RESOLVED',
+                statusName: 'RESOLVED',
                 resolvedAt: new Date(),
                 lguActionLogged: true,
                 images: { create: proofImageUrls.map((url) => ({ url, kind: 'RESOLUTION_PROOF' as const })) },
             },
-            include: { images: true },
+            include: { images: true, status: true },
         });
         res.json(report);
     } catch (err) {
@@ -87,8 +87,9 @@ router.patch('/:id/status', requireUser, async (req, res, next) => {
         const report = await prisma.report.update({
             where: { id: req.params.id as string },
             data: body.action === 'ACCEPT'
-                ? { status: 'REPORTED', validity: 'VALID' }
-                : { status: body.reason, validity: 'FLAGGED', flaggedAt: new Date() },
+                ? { statusName: 'REPORTED' }
+                : { statusName: body.reason, flaggedAt: new Date() },
+            include: { images: true, status: true },
         });
         res.json(report);
     } catch (err) {
