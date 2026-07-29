@@ -1,0 +1,92 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Get a free hosted Postgres database in seconds: `npx create-db`
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum Role {
+  SUPER_ADMIN
+  ADMIN
+  LGU_AGENT
+}
+
+enum UserStatus {
+  ACTIVE
+  PENDING
+  BLOCKED
+}
+
+model User {
+  id             String     @id @default(uuid())
+  name           String
+  email          String     @unique
+  passwordHash   String
+  role           Role
+  status         UserStatus @default(PENDING)
+
+  // Jurisdiction, from PSGC (https://psgc.gitlab.io/api/). Null region = SUPER_ADMIN
+  // (no jurisdiction at all). Province/municipality null = "entire region" / "entire province".
+  regionCode         String?
+  regionName         String?
+  provinceCode       String?
+  provinceName       String?
+  municipalityCode   String?
+  municipalityName   String?
+
+  createdAt      DateTime   @default(now())
+  updatedAt      DateTime   @updatedAt
+}
+
+enum Severity {
+  HIGH
+  LOW
+}
+
+enum ReportStatus {
+  UNRESOLVED
+  RESOLVED
+  FLAGGED
+}
+
+enum FlagReason {
+  FALSE_REPORT
+  OUT_OF_CONTROL
+}
+
+enum JurisdictionStatus {
+  ASSIGNED
+  UNASSIGNED
+}
+
+model Report {
+  id                   String              @id @default(uuid())
+  lat                  Float
+  lng                  Float
+  severity             Severity
+  details              String
+  locationLabel        String?
+  imageUrls            String[]
+  status               ReportStatus        @default(UNRESOLVED)
+  createdAt            DateTime            @default(now())
+  resolvedAt           DateTime?
+  flagReason           FlagReason?
+  flaggedAt            DateTime?
+  lguActionLogged      Boolean             @default(false)
+  resolutionProofUrls  String[]
+
+  regionCode           String?
+  regionName           String?
+  provinceCode         String?
+  provinceName         String?
+  municipalityCode     String?
+  municipalityName     String?
+  jurisdictionStatus   JurisdictionStatus  @default(UNASSIGNED)
+}
