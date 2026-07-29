@@ -53,12 +53,16 @@ enum ReportStatus {
   PENDING
   REPORTED
   RESOLVED
-  FLAGGED
+  FALSE_REPORT
+  DUPLICATE_REPORT
+  MINOR_LITTER
+  ALREADY_RESOLVED
+  PRIVATE_PROPERTY
 }
 
-enum FlagReason {
-  FALSE_REPORT
-  OUT_OF_CONTROL
+enum ReportValidity {
+  VALID
+  FLAGGED
 }
 
 enum JurisdictionStatus {
@@ -80,9 +84,9 @@ model Report {
   locationLabel        String
   images               ReportImage[]
   status               ReportStatus        @default(PENDING)
+  validity             ReportValidity      @default(VALID)
   createdAt            DateTime            @default(now())
   resolvedAt           DateTime?
-  flagReason           FlagReason?
   flaggedAt            DateTime?
   lguActionLogged      Boolean             @default(false)
 

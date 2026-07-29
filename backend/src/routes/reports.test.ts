@@ -181,12 +181,12 @@ test('PATCH /api/reports/:id/status flags a report with a reason', async () => {
             const res = await fetch(`${base}/api/reports/${report.id}/status`, {
                 method: 'PATCH',
                 headers: { 'Content-Type': 'application/json', 'x-user-id': agent.id },
-                body: JSON.stringify({ action: 'FLAG', flagReason: 'FALSE_REPORT' }),
+                body: JSON.stringify({ action: 'FLAG', reason: 'FALSE_REPORT' }),
             });
             assert.equal(res.status, 200);
-            const updated = (await res.json()) as { status: string; flagReason: string; flaggedAt: string | null };
-            assert.equal(updated.status, 'FLAGGED');
-            assert.equal(updated.flagReason, 'FALSE_REPORT');
+            const updated = (await res.json()) as { status: string; validity: string; flaggedAt: string | null };
+            assert.equal(updated.status, 'FALSE_REPORT');
+            assert.equal(updated.validity, 'FLAGGED');
             assert.ok(updated.flaggedAt);
         });
     } finally {

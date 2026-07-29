@@ -74,9 +74,11 @@ router.patch('/:id/resolve', requireUser, async (req, res, next) => {
     }
 });
 
+const FLAG_REASONS = ['FALSE_REPORT', 'DUPLICATE_REPORT', 'MINOR_LITTER', 'ALREADY_RESOLVED', 'PRIVATE_PROPERTY'] as const;
+
 const setStatusSchema = z.discriminatedUnion('action', [
     z.object({ action: z.literal('ACCEPT') }),
-    z.object({ action: z.literal('FLAG'), flagReason: z.enum(['FALSE_REPORT', 'OUT_OF_CONTROL']) }),
+    z.object({ action: z.literal('FLAG'), reason: z.enum(FLAG_REASONS) }),
 ]);
 
 router.patch('/:id/status', requireUser, async (req, res, next) => {
@@ -85,8 +87,8 @@ router.patch('/:id/status', requireUser, async (req, res, next) => {
         const report = await prisma.report.update({
             where: { id: req.params.id as string },
             data: body.action === 'ACCEPT'
-                ? { status: 'REPORTED' }
-                : { status: 'FLAGGED', flagReason: body.flagReason, flaggedAt: new Date() },
+                ? { status: 'REPORTED', validity: 'VALID' }
+                : { status: body.reason, validity: 'FLAGGED', flaggedAt: new Date() },
         });
         res.json(report);
     } catch (err) {
