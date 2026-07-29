@@ -1,7 +1,12 @@
 import { useState, type FormEvent } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import { LogIn } from 'lucide-react';
+import { LogIn, ShieldCheck, MapPin } from 'lucide-react';
 import { useAuth } from '@/context/AuthContext';
+
+const DEMO_ACCOUNTS = [
+    { label: 'Admin', email: 'admin@greenlens.local', password: 'admin123', icon: ShieldCheck },
+    { label: 'LGU Agent (Naic)', email: 'lgu.naic@greenlens.local', password: 'naic123', icon: MapPin },
+];
 
 export default function LoginPage() {
     const { login } = useAuth();
@@ -13,12 +18,11 @@ export default function LoginPage() {
     const [error, setError] = useState('');
     const [submitting, setSubmitting] = useState(false);
 
-    async function handleSubmit(e: FormEvent<HTMLFormElement>) {
-        e.preventDefault();
+    async function doLogin(loginEmail: string, loginPassword: string) {
         setSubmitting(true);
         setError('');
         try {
-            await login(email.trim(), password);
+            await login(loginEmail.trim(), loginPassword);
             const from = (location.state as { from?: string } | null)?.from ?? '/admin';
             navigate(from, { replace: true });
         } catch (err) {
@@ -26,6 +30,17 @@ export default function LoginPage() {
         } finally {
             setSubmitting(false);
         }
+    }
+
+    function handleSubmit(e: FormEvent<HTMLFormElement>) {
+        e.preventDefault();
+        doLogin(email, password);
+    }
+
+    function handleDemoLogin(demoEmail: string, demoPassword: string) {
+        setEmail(demoEmail);
+        setPassword(demoPassword);
+        doLogin(demoEmail, demoPassword);
     }
 
     return (
@@ -36,6 +51,29 @@ export default function LoginPage() {
                         Green<span className="text-primary">Lens</span>
                     </span>
                     <p className="text-sm text-dark-light mt-2">Sign in to the LGU administration console.</p>
+                </div>
+
+                <div className="mb-6 space-y-2">
+                    <p className="text-xs font-semibold text-dark-light uppercase tracking-wide">Quick demo login</p>
+                    <div className="grid grid-cols-2 gap-2">
+                        {DEMO_ACCOUNTS.map(({ label, email: demoEmail, password: demoPassword, icon: Icon }) => (
+                            <button
+                                key={demoEmail}
+                                type="button"
+                                disabled={submitting}
+                                onClick={() => handleDemoLogin(demoEmail, demoPassword)}
+                                className="flex flex-col items-center gap-1.5 py-3 px-2 border border-light-dark rounded-lg text-xs font-medium text-dark hover:border-primary hover:bg-primary/5 transition-colors disabled:opacity-50"
+                            >
+                                <Icon size={18} className="text-primary" />
+                                {label}
+                            </button>
+                        ))}
+                    </div>
+                    <div className="flex items-center gap-3 pt-1">
+                        <div className="h-px flex-1 bg-light-dark" />
+                        <span className="text-xs text-dark-light">or sign in manually</span>
+                        <div className="h-px flex-1 bg-light-dark" />
+                    </div>
                 </div>
 
                 <form className="space-y-5" onSubmit={handleSubmit}>
