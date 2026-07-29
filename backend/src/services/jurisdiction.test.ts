@@ -27,7 +27,7 @@ test('resolveJurisdiction returns ASSIGNED on a full region/province/municipalit
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fakeFetch({
         'nominatim.openstreetmap.org': {
-            address: { country_code: 'ph', city: 'Naic', county: 'Cavite', state: 'Region IV-A' },
+            address: { country_code: 'ph', city: 'Naic', state: 'Cavite', region: 'Region IV-A' },
             display_name: 'Naic, Cavite, Region IV-A, Philippines',
         },
         '/regions/R4A/provinces/': [{ code: 'CAV', name: 'Cavite' }],
@@ -53,7 +53,7 @@ test('resolveJurisdiction uses districts (not provinces) for NCR', async () => {
     const originalFetch = globalThis.fetch;
     globalThis.fetch = fakeFetch({
         'nominatim.openstreetmap.org': {
-            address: { country_code: 'ph', city_district: 'First District', state: 'NCR' },
+            address: { country_code: 'ph', city_district: 'First District', region: 'NCR' },
             display_name: 'Manila, NCR, Philippines',
         },
         '/regions/130000000/districts/': [{ code: 'D1', name: 'First District' }],

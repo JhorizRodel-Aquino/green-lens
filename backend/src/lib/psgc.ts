@@ -12,6 +12,7 @@ export function normalizeName(name: string): string {
         .replace(/[̀-ͯ]/g, '') // strip accents
         .toLowerCase()
         .replace(/^(city of|municipality of)\s+/, '')
+        .replace(/\s+city$/, '') // PSGC "City of Cebu" vs Nominatim "Cebu City"
         .replace(/\s+/g, ' ')
         .trim();
 }
