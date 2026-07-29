@@ -28,8 +28,8 @@ interface ApiReport {
     details: string;
     locationLabel: string;
     images: { url: string; kind: 'USER_UPLOAD' | 'RESOLUTION_PROOF' }[];
-    statusName: ApiStatus;
-    status: { name: ApiStatus; validity: 'VALID' | 'FLAGGED' };
+    statusValue: ApiStatus;
+    status: { value: ApiStatus; validity: 'VALID' | 'FLAGGED' };
     createdAt: string;
     resolvedAt: string | null;
     flaggedAt: string | null;
@@ -40,8 +40,8 @@ function toTrashReport(r: ApiReport): TrashReport {
     // validity comes from the ReportStatusCode join, not a hardcoded status list
     const status: TrashReport['status'] =
         r.status.validity === 'FLAGGED' ? 'flagged'
-        : r.statusName === 'PENDING' ? 'pending'
-        : r.statusName === 'REPORTED' ? 'unresolved'
+        : r.statusValue === 'PENDING' ? 'pending'
+        : r.statusValue === 'REPORTED' ? 'unresolved'
         : 'resolved';
 
     return {
@@ -57,7 +57,7 @@ function toTrashReport(r: ApiReport): TrashReport {
         status,
         createdAt: r.createdAt,
         resolvedAt: r.resolvedAt ?? undefined,
-        flagReason: FLAG_STATUS_TO_REASON[r.statusName],
+        flagReason: FLAG_STATUS_TO_REASON[r.statusValue],
         flaggedAt: r.flaggedAt ?? undefined,
         lguActionLogged: r.lguActionLogged,
     };

@@ -39,8 +39,8 @@ router.get('/', requireUser, async (req, res, next) => {
     try {
         // A report stuck in PENDING for a day auto-becomes REPORTED (LGU didn't act in time).
         await prisma.report.updateMany({
-            where: { statusName: 'PENDING', createdAt: { lt: new Date(Date.now() - PENDING_TIMEOUT_MS) } },
-            data: { statusName: 'REPORTED' },
+            where: { statusValue: 'PENDING', createdAt: { lt: new Date(Date.now() - PENDING_TIMEOUT_MS) } },
+            data: { statusValue: 'REPORTED' },
         });
 
         const where = buildJurisdictionFilter(req.user);
@@ -61,7 +61,7 @@ router.patch('/:id/resolve', requireUser, async (req, res, next) => {
         const report = await prisma.report.update({
             where: { id: req.params.id as string },
             data: {
-                statusName: 'RESOLVED',
+                statusValue: 'RESOLVED',
                 resolvedAt: new Date(),
                 lguActionLogged: true,
                 images: { create: proofImageUrls.map((url) => ({ url, kind: 'RESOLUTION_PROOF' as const })) },
@@ -87,8 +87,8 @@ router.patch('/:id/status', requireUser, async (req, res, next) => {
         const report = await prisma.report.update({
             where: { id: req.params.id as string },
             data: body.action === 'ACCEPT'
-                ? { statusName: 'REPORTED' }
-                : { statusName: body.reason, flaggedAt: new Date() },
+                ? { statusValue: 'REPORTED' }
+                : { statusValue: body.reason, flaggedAt: new Date() },
             include: { images: true, status: true },
         });
         res.json(report);

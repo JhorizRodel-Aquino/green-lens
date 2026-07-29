@@ -57,7 +57,8 @@ enum ReportValidity {
 // Lookup table for report statuses: which ones count as "valid" vs "flagged"
 // lives in data, not in code, so a query can join/filter on validity directly.
 model ReportStatusCode {
-  name     String         @id
+  id       String         @id @default(uuid())
+  value    String         @unique
   validity ReportValidity
   reports  Report[]
 }
@@ -80,8 +81,8 @@ model Report {
   details              String
   locationLabel        String
   images               ReportImage[]
-  statusName           String              @default("PENDING")
-  status               ReportStatusCode    @relation(fields: [statusName], references: [name])
+  statusValue          String              @default("PENDING")
+  status               ReportStatusCode    @relation(fields: [statusValue], references: [value])
   createdAt            DateTime            @default(now())
   resolvedAt           DateTime?
   flaggedAt            DateTime?

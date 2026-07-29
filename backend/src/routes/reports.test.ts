@@ -111,7 +111,7 @@ test('PATCH /api/reports/:id/status accepts a report (PENDING -> REPORTED)', asy
     const report = await prisma.report.create({
         data: { lat: 14.32, lng: 120.77, details: 'awaiting review', locationLabel: 'Somewhere, Philippines' },
     });
-    assert.equal(report.statusName, 'PENDING');
+    assert.equal(report.statusValue, 'PENDING');
 
     try {
         await withServer(async (base) => {
@@ -121,8 +121,8 @@ test('PATCH /api/reports/:id/status accepts a report (PENDING -> REPORTED)', asy
                 body: JSON.stringify({ action: 'ACCEPT' }),
             });
             assert.equal(res.status, 200);
-            const updated = (await res.json()) as { statusName: string; status: { name: string; validity: string } };
-            assert.equal(updated.statusName, 'REPORTED');
+            const updated = (await res.json()) as { statusValue: string; status: { value: string; validity: string } };
+            assert.equal(updated.statusValue, 'REPORTED');
             assert.equal(updated.status.validity, 'VALID');
         });
     } finally {
@@ -153,8 +153,8 @@ test('PATCH /api/reports/:id/resolve tags proof images separately from user uplo
                 body: JSON.stringify({ proofImageUrls: ['https://example.com/proof.jpg'] }),
             });
             assert.equal(res.status, 200);
-            const updated = (await res.json()) as { statusName: string; resolvedAt: string | null; images: { url: string; kind: string }[] };
-            assert.equal(updated.statusName, 'RESOLVED');
+            const updated = (await res.json()) as { statusValue: string; resolvedAt: string | null; images: { url: string; kind: string }[] };
+            assert.equal(updated.statusValue, 'RESOLVED');
             assert.ok(updated.resolvedAt);
             const byKind = Object.fromEntries(updated.images.map((i) => [i.url, i.kind]));
             assert.equal(byKind['https://example.com/user-photo.jpg'], 'USER_UPLOAD');
@@ -185,8 +185,8 @@ test('PATCH /api/reports/:id/status flags a report with a reason', async () => {
                 body: JSON.stringify({ action: 'FLAG', reason: 'FALSE_REPORT' }),
             });
             assert.equal(res.status, 200);
-            const updated = (await res.json()) as { statusName: string; status: { name: string; validity: string }; flaggedAt: string | null };
-            assert.equal(updated.statusName, 'FALSE_REPORT');
+            const updated = (await res.json()) as { statusValue: string; status: { value: string; validity: string }; flaggedAt: string | null };
+            assert.equal(updated.statusValue, 'FALSE_REPORT');
             assert.equal(updated.status.validity, 'FLAGGED');
             assert.ok(updated.flaggedAt);
         });
@@ -216,7 +216,7 @@ test('GET /api/reports auto-transitions stale PENDING reports to REPORTED', asyn
             assert.equal(res.status, 200);
         });
         const refreshed = await prisma.report.findUniqueOrThrow({ where: { id: staleReport.id } });
-        assert.equal(refreshed.statusName, 'REPORTED');
+        assert.equal(refreshed.statusValue, 'REPORTED');
     } finally {
         await prisma.report.delete({ where: { id: staleReport.id } });
         await prisma.user.delete({ where: { id: agent.id } });
