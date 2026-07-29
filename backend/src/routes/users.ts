@@ -55,6 +55,27 @@ router.patch('/:id/status', async (req, res, next) => {
     }
 });
 
+router.patch('/:id', async (req, res, next) => {
+    try {
+        const data = createUserSchema.parse(req.body);
+        const user = await prisma.user.update({ where: { id: req.params.id }, data });
+        res.json(toPublicUser(user));
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.post('/:id/reset-password', async (req, res, next) => {
+    try {
+        const tempPassword = crypto.randomBytes(9).toString('base64url');
+        const passwordHash = await bcrypt.hash(tempPassword, 10);
+        const user = await prisma.user.update({ where: { id: req.params.id }, data: { passwordHash } });
+        res.json({ ...toPublicUser(user), tempPassword });
+    } catch (err) {
+        next(err);
+    }
+});
+
 function toPublicUser(user: Awaited<ReturnType<typeof prisma.user.findFirstOrThrow>>) {
     const { passwordHash: _passwordHash, ...rest } = user;
     return rest;
