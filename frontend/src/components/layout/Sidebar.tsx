@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import {
     LayoutDashboard,
     Map,
@@ -14,6 +14,7 @@ import {
     ChevronRight,
 } from "lucide-react";
 import { cn } from "@/utils/cn";
+import { useAuth } from "@/context/AuthContext";
 
 const NAV_ITEMS = [
     { label: "Dashboard", to: "/admin", icon: LayoutDashboard, end: true },
@@ -27,6 +28,16 @@ const NAV_ITEMS = [
 const COLLAPSE_KEY = "admin-sidebar-collapsed";
 
 function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavigate?: () => void }) {
+    const { user, logout } = useAuth();
+    const navigate = useNavigate();
+    const initial = user?.name?.[0]?.toUpperCase() ?? "?";
+
+    function handleLogout() {
+        logout();
+        onNavigate?.();
+        navigate("/login", { replace: true });
+    }
+
     return (
         <>
             <div className={cn("flex items-center h-16 px-4 border-b border-light-dark", collapsed && "justify-center px-0")}>
@@ -74,16 +85,17 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
 
             <div className={cn("border-t border-light-dark p-3 flex items-center gap-3", collapsed && "justify-center px-0")}>
                 <div className="h-9 w-9 shrink-0 rounded-full bg-primary/10 text-primary flex items-center justify-center text-sm font-semibold">
-                    A
+                    {initial}
                 </div>
                 {!collapsed && (
                     <div className="flex-1 min-w-0">
-                        <p className="text-sm font-medium text-dark truncate">Admin</p>
+                        <p className="text-sm font-medium text-dark truncate">{user?.name ?? "Unknown"}</p>
                     </div>
                 )}
                 <button
                     type="button"
                     title="Log out"
+                    onClick={handleLogout}
                     className="shrink-0 text-dark-light hover:text-red-500 transition-colors"
                 >
                     <LogOut size={18} />
