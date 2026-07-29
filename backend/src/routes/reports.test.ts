@@ -166,6 +166,96 @@ test('PATCH /api/reports/:id/resolve tags proof images separately from user uplo
     }
 });
 
+test('PATCH /api/reports/:id/resolve stores an optional note', async () => {
+    const agent = await prisma.user.create({
+        data: {
+            name: 'Resolve Note Agent', email: `resolvenote-${Date.now()}@gov.ph`, passwordHash: 'x',
+            role: 'LGU_AGENT', status: 'ACTIVE', regionCode: 'R4A', regionName: 'Region IV-A',
+        },
+    });
+    const report = await prisma.report.create({
+        data: { lat: 14.32, lng: 120.77, details: 'cleaned up', locationLabel: 'Somewhere, Philippines' },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/resolve`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': agent.id },
+                body: JSON.stringify({ proofImageUrls: ['https://example.com/proof.jpg'], note: 'Cleared by barangay crew.' }),
+            });
+            assert.equal(res.status, 200);
+            const updated = (await res.json()) as { notes: { text: string; kind: string }[] };
+            assert.equal(updated.notes.length, 1);
+            assert.equal(updated.notes[0].text, 'Cleared by barangay crew.');
+            assert.equal(updated.notes[0].kind, 'RESOLUTION');
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: agent.id } });
+    }
+});
+
+test('PATCH /api/reports/:id/reopen moves a RESOLVED report back to REPORTED with a note', async () => {
+    const agent = await prisma.user.create({
+        data: {
+            name: 'Reopen Agent', email: `reopen-${Date.now()}@gov.ph`, passwordHash: 'x',
+            role: 'LGU_AGENT', status: 'ACTIVE', regionCode: 'R4A', regionName: 'Region IV-A',
+        },
+    });
+    const report = await prisma.report.create({
+        data: {
+            lat: 14.32, lng: 120.77, details: 'not actually cleaned', locationLabel: 'Somewhere, Philippines',
+            statusValue: 'RESOLVED', resolvedAt: new Date(),
+        },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/reopen`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': agent.id },
+                body: JSON.stringify({ note: "Trash is still there, wasn't collected." }),
+            });
+            assert.equal(res.status, 200);
+            const updated = (await res.json()) as { statusValue: string; resolvedAt: string | null; notes: { text: string; kind: string }[] };
+            assert.equal(updated.statusValue, 'REPORTED');
+            assert.equal(updated.resolvedAt, null);
+            assert.equal(updated.notes.length, 1);
+            assert.equal(updated.notes[0].kind, 'REOPEN');
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: agent.id } });
+    }
+});
+
+test('PATCH /api/reports/:id/reopen rejects reports that are not RESOLVED', async () => {
+    const agent = await prisma.user.create({
+        data: {
+            name: 'Reopen Reject Agent', email: `reopenreject-${Date.now()}@gov.ph`, passwordHash: 'x',
+            role: 'LGU_AGENT', status: 'ACTIVE', regionCode: 'R4A', regionName: 'Region IV-A',
+        },
+    });
+    const report = await prisma.report.create({
+        data: { lat: 14.32, lng: 120.77, details: 'still pending', locationLabel: 'Somewhere, Philippines' },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/reopen`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': agent.id },
+                body: JSON.stringify({ note: 'not satisfied' }),
+            });
+            assert.equal(res.status, 409);
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: agent.id } });
+    }
+});
+
 test('PATCH /api/reports/:id/status flags a report with a reason', async () => {
     const agent = await prisma.user.create({
         data: {

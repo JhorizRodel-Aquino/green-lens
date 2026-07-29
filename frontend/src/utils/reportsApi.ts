@@ -2,23 +2,7 @@
 import type { TrashReport, FlagReasonCode } from '@/components/map/TrashMap';
 import { apiFetch } from './api';
 
-type ApiStatus = 'PENDING' | 'REPORTED' | 'RESOLVED' | 'FALSE_REPORT' | 'DUPLICATE_REPORT' | 'MINOR_LITTER' | 'ALREADY_RESOLVED' | 'PRIVATE_PROPERTY';
-
-const FLAG_STATUS_TO_REASON: Partial<Record<ApiStatus, FlagReasonCode>> = {
-    FALSE_REPORT: 'false_report',
-    DUPLICATE_REPORT: 'duplicate_report',
-    MINOR_LITTER: 'minor_litter',
-    ALREADY_RESOLVED: 'already_resolved',
-    PRIVATE_PROPERTY: 'private_property',
-};
-
-const REASON_TO_FLAG_STATUS: Record<FlagReasonCode, ApiStatus> = {
-    false_report: 'FALSE_REPORT',
-    duplicate_report: 'DUPLICATE_REPORT',
-    minor_litter: 'MINOR_LITTER',
-    already_resolved: 'ALREADY_RESOLVED',
-    private_property: 'PRIVATE_PROPERTY',
-};
+type ApiStatus = 'PENDING' | 'REPORTED' | 'RESOLVED' | FlagReasonCode;
 
 interface ApiReport {
     id: string;
@@ -30,6 +14,7 @@ interface ApiReport {
     images: { url: string; kind: 'USER_UPLOAD' | 'RESOLUTION_PROOF' }[];
     statusValue: ApiStatus;
     status: { value: ApiStatus; validity: 'VALID' | 'FLAGGED' };
+    notes: { text: string; kind: 'RESOLUTION' | 'REOPEN'; createdAt: string }[];
     createdAt: string;
     resolvedAt: string | null;
     flaggedAt: string | null;
@@ -38,8 +23,9 @@ interface ApiReport {
 
 function toTrashReport(r: ApiReport): TrashReport {
     // validity comes from the ReportStatusCode join, not a hardcoded status list
+    const isFlagged = r.status.validity === 'FLAGGED';
     const status: TrashReport['status'] =
-        r.status.validity === 'FLAGGED' ? 'flagged'
+        isFlagged ? 'flagged'
         : r.statusValue === 'PENDING' ? 'pending'
         : r.statusValue === 'REPORTED' ? 'unresolved'
         : 'resolved';
@@ -57,9 +43,13 @@ function toTrashReport(r: ApiReport): TrashReport {
         status,
         createdAt: r.createdAt,
         resolvedAt: r.resolvedAt ?? undefined,
-        flagReason: FLAG_STATUS_TO_REASON[r.statusValue],
+        flagReason: isFlagged ? (r.statusValue as FlagReasonCode) : undefined,
         flaggedAt: r.flaggedAt ?? undefined,
         lguActionLogged: r.lguActionLogged,
+        remarks: r.notes.map((n) => ({
+            text: n.kind === 'REOPEN' ? `Reopened: ${n.text}` : n.text,
+            createdAt: n.createdAt,
+        })),
     };
 }
 
@@ -79,15 +69,23 @@ export async function acceptReportApi(id: string): Promise<TrashReport> {
 export async function flagReportApi(id: string, reason: FlagReasonCode): Promise<TrashReport> {
     const report = await apiFetch<ApiReport>(`/api/reports/${id}/status`, {
         method: 'PATCH',
-        body: JSON.stringify({ action: 'FLAG', reason: REASON_TO_FLAG_STATUS[reason] }),
+        body: JSON.stringify({ action: 'FLAG', reason }),
     });
     return toTrashReport(report);
 }
 
-export async function resolveReportApi(id: string, proofImageUrls: string[]): Promise<TrashReport> {
+export async function resolveReportApi(id: string, proofImageUrls: string[], note?: string): Promise<TrashReport> {
     const report = await apiFetch<ApiReport>(`/api/reports/${id}/resolve`, {
         method: 'PATCH',
-        body: JSON.stringify({ proofImageUrls }),
+        body: JSON.stringify({ proofImageUrls, note }),
+    });
+    return toTrashReport(report);
+}
+
+export async function reopenReportApi(id: string, note: string): Promise<TrashReport> {
+    const report = await apiFetch<ApiReport>(`/api/reports/${id}/reopen`, {
+        method: 'PATCH',
+        body: JSON.stringify({ note }),
     });
     return toTrashReport(report);
 }

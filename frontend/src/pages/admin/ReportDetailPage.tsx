@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, useNavigate, useParams } from 'react-router-dom';
 import {
     ChevronRight, MapPin, ImageOff, CheckCircle2, Camera, Upload, CircleCheck,
-    FileWarning, ShieldAlert, MessageSquarePlus,
+    FileWarning, ShieldAlert, MessageSquarePlus, RotateCcw,
 } from 'lucide-react';
 import { useReports } from '@/context/ReportsContext';
 import { FLAG_REASON_LABELS } from '@/components/map/TrashMap';
@@ -20,10 +20,13 @@ function formatDateTime(iso: string): string {
 export default function ReportDetailPage() {
     const { id } = useParams<{ id: string }>();
     const navigate = useNavigate();
-    const { reports, resolveReport, addRemark } = useReports();
+    const { reports, resolveReport, reopenReport, addRemark } = useReports();
     const [afterImages, setAfterImages] = useState<string[]>([]);
     const [showCamera, setShowCamera] = useState(false);
     const [remarkText, setRemarkText] = useState('');
+    const [resolveNote, setResolveNote] = useState('');
+    const [reopenNote, setReopenNote] = useState('');
+    const [showReopenForm, setShowReopenForm] = useState(false);
     const fileInputRef = useRef<HTMLInputElement>(null);
 
     const report = reports.find((r) => r.id === id);
@@ -71,8 +74,16 @@ export default function ReportDetailPage() {
 
     const handleResolve = async () => {
         if (afterImages.length === 0) return;
-        await resolveReport(report.id, afterImages);
+        await resolveReport(report.id, afterImages, resolveNote.trim() || undefined);
         navigate('/admin/reports');
+    };
+
+    const handleReopen = async () => {
+        const text = reopenNote.trim();
+        if (!text) return;
+        await reopenReport(report.id, text);
+        setReopenNote('');
+        setShowReopenForm(false);
     };
 
     const handleAddRemark = () => {
@@ -216,23 +227,66 @@ export default function ReportDetailPage() {
                         </div>
 
                         {!isResolved && (
-                            <div className="flex justify-end">
-                                <Button
-                                    variant="primary"
-                                    leftIcon={CircleCheck}
-                                    disabled={afterImages.length === 0}
-                                    onClick={handleResolve}
-                                    className="rounded-lg"
-                                >
-                                    Resolve Report
-                                </Button>
+                            <div className="space-y-2">
+                                <textarea
+                                    value={resolveNote}
+                                    onChange={(e) => setResolveNote(e.target.value)}
+                                    placeholder="Resolution notes (optional)..."
+                                    rows={2}
+                                    className="w-full rounded-lg border border-light-dark bg-white px-3 py-2 text-sm text-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                                />
+                                <div className="flex justify-end">
+                                    <Button
+                                        variant="primary"
+                                        leftIcon={CircleCheck}
+                                        disabled={afterImages.length === 0}
+                                        onClick={handleResolve}
+                                        className="rounded-lg"
+                                    >
+                                        Resolve Report
+                                    </Button>
+                                </div>
                             </div>
                         )}
 
                         {isResolved && (
-                            <div className="flex items-center gap-2 rounded-lg bg-primary-light/20 px-4 py-3 text-sm text-primary-dark">
-                                <CheckCircle2 size={18} className="shrink-0" />
-                                This report has been resolved.
+                            <div className="space-y-3">
+                                <div className="flex items-center gap-2 rounded-lg bg-primary-light/20 px-4 py-3 text-sm text-primary-dark">
+                                    <CheckCircle2 size={18} className="shrink-0" />
+                                    This report has been resolved.
+                                </div>
+
+                                {!showReopenForm ? (
+                                    <div className="flex justify-end">
+                                        <Button variant="outline" size="sm" leftIcon={RotateCcw} onClick={() => setShowReopenForm(true)}>
+                                            Reopen Report
+                                        </Button>
+                                    </div>
+                                ) : (
+                                    <div className="space-y-2">
+                                        <textarea
+                                            value={reopenNote}
+                                            onChange={(e) => setReopenNote(e.target.value)}
+                                            placeholder="Why is this being reopened? e.g. trash wasn't actually collected..."
+                                            rows={2}
+                                            className="w-full rounded-lg border border-light-dark bg-white px-3 py-2 text-sm text-dark focus:outline-none focus:ring-2 focus:ring-primary"
+                                        />
+                                        <div className="flex justify-end gap-2">
+                                            <Button variant="outline" size="sm" onClick={() => setShowReopenForm(false)}>
+                                                Cancel
+                                            </Button>
+                                            <Button
+                                                variant="primary"
+                                                size="sm"
+                                                leftIcon={RotateCcw}
+                                                disabled={!reopenNote.trim()}
+                                                onClick={handleReopen}
+                                            >
+                                                Confirm Reopen
+                                            </Button>
+                                        </div>
+                                    </div>
+                                )}
                             </div>
                         )}
                     </div>

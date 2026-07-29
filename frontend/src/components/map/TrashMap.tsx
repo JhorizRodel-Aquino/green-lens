@@ -134,15 +134,16 @@ const selectedSeverityIcons: Record<'HIGH' | 'LOW', L.DivIcon> = {
 // Types for your Trash Reports
 export type ReportStatus = 'pending' | 'unresolved' | 'flagged' | 'resolved';
 
-// Mirrors the backend's ReportStatus flag values (see backend/prisma/schema.prisma)
-export type FlagReasonCode = 'false_report' | 'duplicate_report' | 'minor_litter' | 'already_resolved' | 'private_property';
+// Same values the backend's ReportStatusCode table uses for flagged statuses
+// (backend/prisma/schema.prisma) — used as-is, no separate frontend vocabulary to keep in sync.
+export type FlagReasonCode = 'FALSE_REPORT' | 'DUPLICATE_REPORT' | 'MINOR_LITTER' | 'ALREADY_RESOLVED' | 'PRIVATE_PROPERTY';
 
 export const FLAG_REASON_LABELS: Record<FlagReasonCode, string> = {
-  false_report: 'False report',
-  duplicate_report: 'Duplicate report',
-  minor_litter: 'Minor litter',
-  already_resolved: 'Already resolved',
-  private_property: 'Private property',
+  FALSE_REPORT: 'False report',
+  DUPLICATE_REPORT: 'Duplicate report',
+  MINOR_LITTER: 'Minor litter',
+  ALREADY_RESOLVED: 'Already resolved',
+  PRIVATE_PROPERTY: 'Private property',
 };
 
 export type TrashReport = {

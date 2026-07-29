@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { TrashReport, FlagReasonCode } from '@/components/map/TrashMap';
-import { fetchReports, acceptReportApi, flagReportApi, resolveReportApi } from '@/utils/reportsApi';
+import { fetchReports, acceptReportApi, flagReportApi, resolveReportApi, reopenReportApi } from '@/utils/reportsApi';
 
 type ReportsContextValue = {
     reports: TrashReport[];
@@ -10,7 +10,8 @@ type ReportsContextValue = {
     updateReport: (id: string, patch: Partial<TrashReport>) => void;
     acceptReport: (id: string) => Promise<void>;
     flagReport: (id: string, reason: FlagReasonCode) => Promise<void>;
-    resolveReport: (id: string, resolutionProofUrls: string[]) => Promise<void>;
+    resolveReport: (id: string, resolutionProofUrls: string[], note?: string) => Promise<void>;
+    reopenReport: (id: string, note: string) => Promise<void>;
     addRemark: (id: string, text: string) => void;
 };
 
@@ -48,8 +49,13 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
         updateReport(id, updated);
     }, [updateReport]);
 
-    const resolveReport = useCallback(async (id: string, resolutionProofUrls: string[]) => {
-        const updated = await resolveReportApi(id, resolutionProofUrls);
+    const resolveReport = useCallback(async (id: string, resolutionProofUrls: string[], note?: string) => {
+        const updated = await resolveReportApi(id, resolutionProofUrls, note);
+        updateReport(id, updated);
+    }, [updateReport]);
+
+    const reopenReport = useCallback(async (id: string, note: string) => {
+        const updated = await reopenReportApi(id, note);
         updateReport(id, updated);
     }, [updateReport]);
 
@@ -65,8 +71,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const value = useMemo(
-        () => ({ reports, loading, error, refresh, updateReport, acceptReport, flagReport, resolveReport, addRemark }),
-        [reports, loading, error, refresh, updateReport, acceptReport, flagReport, resolveReport, addRemark]
+        () => ({ reports, loading, error, refresh, updateReport, acceptReport, flagReport, resolveReport, reopenReport, addRemark }),
+        [reports, loading, error, refresh, updateReport, acceptReport, flagReport, resolveReport, reopenReport, addRemark]
     );
 
     return <ReportsContext.Provider value={value}>{children}</ReportsContext.Provider>;

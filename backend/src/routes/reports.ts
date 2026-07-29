@@ -44,7 +44,7 @@ router.get('/', requireUser, async (req, res, next) => {
         });
 
         const where = buildJurisdictionFilter(req.user);
-        const reports = await prisma.report.findMany({ where, include: { images: true, status: true }, orderBy: { createdAt: 'desc' } });
+        const reports = await prisma.report.findMany({ where, include: { images: true, status: true, notes: true }, orderBy: { createdAt: 'desc' } });
         res.json(reports);
     } catch (err) {
         next(err);
@@ -53,11 +53,12 @@ router.get('/', requireUser, async (req, res, next) => {
 
 const resolveReportSchema = z.object({
     proofImageUrls: z.array(z.string()).min(1),
+    note: z.string().min(1).nullish(),
 });
 
 router.patch('/:id/resolve', requireUser, async (req, res, next) => {
     try {
-        const { proofImageUrls } = resolveReportSchema.parse(req.body);
+        const { proofImageUrls, note } = resolveReportSchema.parse(req.body);
         const report = await prisma.report.update({
             where: { id: req.params.id as string },
             data: {
@@ -65,8 +66,41 @@ router.patch('/:id/resolve', requireUser, async (req, res, next) => {
                 resolvedAt: new Date(),
                 lguActionLogged: true,
                 images: { create: proofImageUrls.map((url) => ({ url, kind: 'RESOLUTION_PROOF' as const })) },
+                ...(note ? { notes: { create: [{ text: note, kind: 'RESOLUTION' as const }] } } : {}),
             },
-            include: { images: true, status: true },
+            include: { images: true, status: true, notes: true },
+        });
+        res.json(report);
+    } catch (err) {
+        next(err);
+    }
+});
+
+const reopenReportSchema = z.object({
+    note: z.string().min(1),
+});
+
+router.patch('/:id/reopen', requireUser, async (req, res, next) => {
+    try {
+        const { note } = reopenReportSchema.parse(req.body);
+        const existing = await prisma.report.findUnique({ where: { id: req.params.id as string } });
+        if (!existing) {
+            res.status(404).json({ error: 'Report not found' });
+            return;
+        }
+        if (existing.statusValue !== 'RESOLVED') {
+            res.status(409).json({ error: 'Only a resolved report can be reopened' });
+            return;
+        }
+
+        const report = await prisma.report.update({
+            where: { id: req.params.id as string },
+            data: {
+                statusValue: 'REPORTED',
+                resolvedAt: null,
+                notes: { create: [{ text: note, kind: 'REOPEN' as const }] },
+            },
+            include: { images: true, status: true, notes: true },
         });
         res.json(report);
     } catch (err) {

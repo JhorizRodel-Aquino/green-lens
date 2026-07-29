@@ -73,6 +73,11 @@ enum ImageKind {
   RESOLUTION_PROOF
 }
 
+enum NoteKind {
+  RESOLUTION
+  REOPEN
+}
+
 model Report {
   id                   String              @id @default(uuid())
   lat                  Float
@@ -81,6 +86,7 @@ model Report {
   details              String
   locationLabel        String
   images               ReportImage[]
+  notes                ReportNote[]
   statusValue          String              @default("PENDING")
   status               ReportStatusCode    @relation(fields: [statusValue], references: [value])
   createdAt            DateTime            @default(now())
@@ -104,4 +110,13 @@ model ReportImage {
   reportId  String
   report    Report    @relation(fields: [reportId], references: [id], onDelete: Cascade)
   createdAt DateTime  @default(now())
+}
+
+model ReportNote {
+  id        String   @id @default(uuid())
+  text      String
+  kind      NoteKind
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }
