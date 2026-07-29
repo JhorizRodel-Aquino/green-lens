@@ -2,6 +2,7 @@ import express, { type ErrorRequestHandler } from 'express';
 import cors from 'cors';
 import { ZodError } from 'zod';
 import usersRouter from './routes/users';
+import reportsRouter from './routes/reports';
 
 export const app = express();
 
@@ -10,6 +11,7 @@ app.use(express.json());
 
 app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/users', usersRouter);
+app.use('/api/reports', reportsRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     if (err instanceof ZodError) {
