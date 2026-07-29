@@ -100,3 +100,89 @@ test('PATCH /api/reports/:id/jurisdiction requires SUPER_ADMIN', async () => {
         await prisma.user.delete({ where: { id: agent.id } });
     }
 });
+
+test('PATCH /api/reports/:id/status accepts a report (PENDING -> REPORTED)', async () => {
+    const agent = await prisma.user.create({
+        data: {
+            name: 'Status Agent', email: `status-${Date.now()}@gov.ph`, passwordHash: 'x',
+            role: 'LGU_AGENT', status: 'ACTIVE', regionCode: 'R4A', regionName: 'Region IV-A',
+        },
+    });
+    const report = await prisma.report.create({
+        data: { lat: 14.32, lng: 120.77, details: 'awaiting review', locationLabel: 'Somewhere, Philippines' },
+    });
+    assert.equal(report.status, 'PENDING');
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': agent.id },
+                body: JSON.stringify({ action: 'ACCEPT' }),
+            });
+            assert.equal(res.status, 200);
+            const updated = (await res.json()) as { status: string };
+            assert.equal(updated.status, 'REPORTED');
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: agent.id } });
+    }
+});
+
+test('PATCH /api/reports/:id/status flags a report with a reason', async () => {
+    const agent = await prisma.user.create({
+        data: {
+            name: 'Flag Agent', email: `flag-${Date.now()}@gov.ph`, passwordHash: 'x',
+            role: 'LGU_AGENT', status: 'ACTIVE', regionCode: 'R4A', regionName: 'Region IV-A',
+        },
+    });
+    const report = await prisma.report.create({
+        data: { lat: 14.32, lng: 120.77, details: 'looks fake', locationLabel: 'Somewhere, Philippines' },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/status`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': agent.id },
+                body: JSON.stringify({ action: 'FLAG', flagReason: 'FALSE_REPORT' }),
+            });
+            assert.equal(res.status, 200);
+            const updated = (await res.json()) as { status: string; flagReason: string; flaggedAt: string | null };
+            assert.equal(updated.status, 'FLAGGED');
+            assert.equal(updated.flagReason, 'FALSE_REPORT');
+            assert.ok(updated.flaggedAt);
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: agent.id } });
+    }
+});
+
+test('GET /api/reports auto-transitions stale PENDING reports to REPORTED', async () => {
+    const agent = await prisma.user.create({
+        data: {
+            name: 'Sweep Agent', email: `sweep-${Date.now()}@gov.ph`, passwordHash: 'x',
+            role: 'LGU_AGENT', status: 'ACTIVE', regionCode: 'R4A', regionName: 'Region IV-A',
+        },
+    });
+    const staleReport = await prisma.report.create({
+        data: {
+            lat: 14.32, lng: 120.77, details: 'two days old', locationLabel: 'Somewhere, Philippines',
+            createdAt: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000),
+        },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports`, { headers: { 'x-user-id': agent.id } });
+            assert.equal(res.status, 200);
+        });
+        const refreshed = await prisma.report.findUniqueOrThrow({ where: { id: staleReport.id } });
+        assert.equal(refreshed.status, 'REPORTED');
+    } finally {
+        await prisma.report.delete({ where: { id: staleReport.id } });
+        await prisma.user.delete({ where: { id: agent.id } });
+    }
+});

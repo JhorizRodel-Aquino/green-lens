@@ -50,7 +50,8 @@ enum Severity {
 }
 
 enum ReportStatus {
-  UNRESOLVED
+  PENDING
+  REPORTED
   RESOLVED
   FLAGGED
 }
@@ -72,8 +73,8 @@ model Report {
   severity             Severity?
   details              String
   locationLabel        String
-  imageUrls            String[]
-  status               ReportStatus        @default(UNRESOLVED)
+  images               ReportImage[]
+  status               ReportStatus        @default(PENDING)
   createdAt            DateTime            @default(now())
   resolvedAt           DateTime?
   flagReason           FlagReason?
@@ -88,4 +89,12 @@ model Report {
   municipalityCode     String?
   municipalityName     String?
   jurisdictionStatus   JurisdictionStatus  @default(UNASSIGNED)
+}
+
+model ReportImage {
+  id        String   @id @default(uuid())
+  url       String
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
 }

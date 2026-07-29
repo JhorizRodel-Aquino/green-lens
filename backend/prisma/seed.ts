@@ -38,10 +38,11 @@ async function seedReport(data: {
 
     try {
         const jurisdiction = await resolveJurisdiction(data.lat, data.lng);
+        const imageUrls = data.imageUrls ?? ['https://placehold.co/600x400?text=Report'];
         const report = await prisma.report.create({
             data: {
                 lat: data.lat, lng: data.lng, details: data.details,
-                severity: data.severity, imageUrls: data.imageUrls ?? ['https://placehold.co/600x400?text=Report'],
+                severity: data.severity, images: { create: imageUrls.map((url) => ({ url })) },
                 ...jurisdiction,
             },
         });
