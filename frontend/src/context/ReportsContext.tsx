@@ -1,6 +1,9 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState, type ReactNode } from 'react';
 import type { TrashReport, FlagReasonCode } from '@/components/map/TrashMap';
-import { fetchReports, acceptReportApi, flagReportApi, resolveReportApi, reopenReportApi } from '@/utils/reportsApi';
+import {
+    fetchReports, acceptReportApi, flagReportApi, resolveReportApi, reopenReportApi, assignJurisdictionApi,
+    type AssignJurisdictionPayload,
+} from '@/utils/reportsApi';
 
 type ReportsContextValue = {
     reports: TrashReport[];
@@ -13,6 +16,7 @@ type ReportsContextValue = {
     resolveReport: (id: string, resolutionProofUrls: string[], note?: string) => Promise<void>;
     reopenReport: (id: string, note: string) => Promise<void>;
     addRemark: (id: string, text: string) => void;
+    assignJurisdiction: (id: string, payload: AssignJurisdictionPayload) => Promise<void>;
 };
 
 const ReportsContext = createContext<ReportsContextValue | null>(null);
@@ -59,6 +63,11 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
         updateReport(id, updated);
     }, [updateReport]);
 
+    const assignJurisdiction = useCallback(async (id: string, payload: AssignJurisdictionPayload) => {
+        const updated = await assignJurisdictionApi(id, payload);
+        updateReport(id, updated);
+    }, [updateReport]);
+
     // Remarks aren't backed by the API yet — kept as local-only UI state.
     const addRemark = useCallback((id: string, text: string) => {
         setReports((prev) =>
@@ -71,8 +80,8 @@ export function ReportsProvider({ children }: { children: ReactNode }) {
     }, []);
 
     const value = useMemo(
-        () => ({ reports, loading, error, refresh, updateReport, acceptReport, flagReport, resolveReport, reopenReport, addRemark }),
-        [reports, loading, error, refresh, updateReport, acceptReport, flagReport, resolveReport, reopenReport, addRemark]
+        () => ({ reports, loading, error, refresh, updateReport, acceptReport, flagReport, resolveReport, reopenReport, addRemark, assignJurisdiction }),
+        [reports, loading, error, refresh, updateReport, acceptReport, flagReport, resolveReport, reopenReport, addRemark, assignJurisdiction]
     );
 
     return <ReportsContext.Provider value={value}>{children}</ReportsContext.Provider>;

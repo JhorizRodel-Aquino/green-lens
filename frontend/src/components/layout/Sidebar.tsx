@@ -31,6 +31,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
     const { user, logout } = useAuth();
     const navigate = useNavigate();
     const initial = user?.name?.[0]?.toUpperCase() ?? "?";
+    const navItems = user?.role === "LGU_AGENT" ? NAV_ITEMS.filter((item) => item.label !== "Users") : NAV_ITEMS;
 
     function handleLogout() {
         logout();
@@ -53,7 +54,7 @@ function SidebarContent({ collapsed, onNavigate }: { collapsed: boolean; onNavig
             </div>
 
             <nav className="flex-1 overflow-y-auto py-4 px-2 space-y-1">
-                {NAV_ITEMS.map(({ label, to, icon: Icon, end }) => (
+                {navItems.map(({ label, to, icon: Icon, end }) => (
                     <NavLink
                         key={to}
                         to={to}

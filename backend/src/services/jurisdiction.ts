@@ -46,8 +46,6 @@ export async function resolveJurisdiction(lat: number, lng: number): Promise<Jur
     const provinceCandidates = [address.state, address.state_district, address.county].filter((v): v is string => Boolean(v));
     const municipalityCandidates = [address.city, address.town, address.municipality, address.county]
         .filter((v): v is string => Boolean(v));
-    const districtCandidates = [address.city_district, address.borough, address.suburb]
-        .filter((v): v is string => Boolean(v));
 
     const regions = await fetchRegions();
     const isNcrCandidate = regionCandidates.some((c) => NCR_ALIASES.has(normalizeName(c)));
@@ -58,19 +56,32 @@ export async function resolveJurisdiction(lat: number, lng: number): Promise<Jur
 
     // NCR has no provinces — its hierarchy is region -> district -> city, so the district
     // takes the province slot and the actual city still gets matched at municipality level.
+    //
+    // Nominatim's own "district" fields (city_district/borough/suburb) don't correspond to
+    // PSGC's 4 NCR districts — they're OSM's own zones (e.g. "Eastern Manila District") or a
+    // city's internal council district (e.g. Quezon City's "6th District"). So match the city
+    // name against all of NCR's cities/municipalities first, then derive the district from
+    // whichever one contained the match.
     if (region.code === NCR_REGION_CODE) {
         const districts = await fetchDistricts(region.code);
-        const district = findBestMatch(districtCandidates, districts);
-        if (!district) return unassigned(displayName);
+        const districtCityLists = await Promise.all(districts.map((d) => fetchCitiesMunicipalitiesByDistrict(d.code)));
 
-        const municipalities = await fetchCitiesMunicipalitiesByDistrict(district.code);
-        const municipality = findBestMatch(municipalityCandidates, municipalities);
-        if (!municipality) return unassigned(displayName);
+        let matchedDistrict: typeof districts[number] | null = null;
+        let municipality: typeof districtCityLists[number][number] | null = null;
+        for (let i = 0; i < districts.length; i++) {
+            const found = findBestMatch(municipalityCandidates, districtCityLists[i]);
+            if (found) {
+                matchedDistrict = districts[i];
+                municipality = found;
+                break;
+            }
+        }
+        if (!matchedDistrict || !municipality) return unassigned(displayName);
 
         return {
             jurisdictionStatus: 'ASSIGNED', locationLabel: displayName,
             regionCode: region.code, regionName: region.name,
-            provinceCode: district.code, provinceName: district.name,
+            provinceCode: matchedDistrict.code, provinceName: matchedDistrict.name,
             municipalityCode: municipality.code, municipalityName: municipality.name,
         };
     }

@@ -7,6 +7,7 @@ import { useReports } from '@/context/ReportsContext';
 import { useNotifications } from '@/components/ui/Notifications';
 import { FLAG_REASON_LABELS, type FlagReasonCode } from './TrashMap';
 import ImageLightbox from './ImageLightbox';
+import DirectionsModal from '@/components/admin/DirectionsModal';
 
 type ReportDetailPanelProps = {
     reportId: string;
@@ -20,6 +21,7 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
     const [flagMenuOpen, setFlagMenuOpen] = useState(false);
     const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
     const [carouselIndex, setCarouselIndex] = useState(0);
+    const [showDirections, setShowDirections] = useState(false);
 
     const report = reports.find((r) => r.id === reportId);
     const images = report?.imageUrls ?? [];
@@ -153,7 +155,13 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
 
                 <div>
                     <p className="text-xs font-semibold uppercase tracking-wide text-dark-light">GPS Coordinates</p>
-                    <p className="text-sm text-dark mt-0.5">{report.lat.toFixed(6)}, {report.lng.toFixed(6)}</p>
+                    <button
+                        type="button"
+                        onClick={() => setShowDirections(true)}
+                        className="text-sm text-primary hover:underline mt-0.5"
+                    >
+                        {report.lat.toFixed(6)}, {report.lng.toFixed(6)}
+                    </button>
                 </div>
 
                 <div>
@@ -183,50 +191,56 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
                     </Button>
                 )}
 
-                <div className="flex gap-2">
-                    <Button
-                        variant="primary"
-                        leftIcon={CircleCheck}
-                        fullWidth
-                        className="rounded-lg"
-                        onClick={() => {
-                            onClose();
-                            navigate(`/admin/reports/${report.id}`);
-                        }}
-                    >
-                        {report.status === 'resolved' ? 'View Resolution' : 'Resolve'}
-                    </Button>
-
-                    <div className="relative shrink-0">
+                {report.status === 'flagged' ? (
+                    <div className="rounded-lg bg-secondary-light/20 px-4 py-3 text-sm text-secondary-dark text-center">
+                        This report is flagged and cannot be resolved.
+                    </div>
+                ) : (
+                    <div className="flex gap-2">
                         <Button
-                            variant="outline"
-                            rightIcon={ChevronDown}
-                            className="rounded-lg whitespace-nowrap"
-                            onClick={() => setFlagMenuOpen((v) => !v)}
+                            variant="primary"
+                            leftIcon={CircleCheck}
+                            fullWidth
+                            className="rounded-lg"
+                            onClick={() => {
+                                onClose();
+                                navigate(`/admin/reports/${report.id}`);
+                            }}
                         >
-                            <Flag size={16} />
-                            Flag
+                            {report.status === 'resolved' ? 'View Resolution' : 'Resolve'}
                         </Button>
 
-                        {flagMenuOpen && (
-                            <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-light-dark bg-white shadow-lg overflow-hidden">
-                                {(Object.keys(FLAG_REASON_LABELS) as FlagReasonCode[]).map((reason, i) => (
-                                    <button
-                                        key={reason}
-                                        type="button"
-                                        onClick={() => handleFlag(reason)}
-                                        className={cn(
-                                            'w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light',
-                                            i > 0 && 'border-t border-light-dark'
-                                        )}
-                                    >
-                                        {FLAG_REASON_LABELS[reason]}
-                                    </button>
-                                ))}
-                            </div>
-                        )}
+                        <div className="relative shrink-0">
+                            <Button
+                                variant="outline"
+                                rightIcon={ChevronDown}
+                                className="rounded-lg whitespace-nowrap"
+                                onClick={() => setFlagMenuOpen((v) => !v)}
+                            >
+                                <Flag size={16} />
+                                Flag
+                            </Button>
+
+                            {flagMenuOpen && (
+                                <div className="absolute bottom-full right-0 mb-2 w-56 rounded-lg border border-light-dark bg-white shadow-lg overflow-hidden">
+                                    {(Object.keys(FLAG_REASON_LABELS) as FlagReasonCode[]).map((reason, i) => (
+                                        <button
+                                            key={reason}
+                                            type="button"
+                                            onClick={() => handleFlag(reason)}
+                                            className={cn(
+                                                'w-full text-left px-4 py-2.5 text-sm text-dark hover:bg-light',
+                                                i > 0 && 'border-t border-light-dark'
+                                            )}
+                                        >
+                                            {FLAG_REASON_LABELS[reason]}
+                                        </button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
+                )}
             </div>
 
             {lightboxIndex !== null && (
@@ -236,6 +250,10 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
                     onClose={() => setLightboxIndex(null)}
                     onIndexChange={setCarouselIndex}
                 />
+            )}
+
+            {showDirections && (
+                <DirectionsModal lat={report.lat} lng={report.lng} onClose={() => setShowDirections(false)} />
             )}
         </div>
     );

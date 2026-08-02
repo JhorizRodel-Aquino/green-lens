@@ -13,7 +13,14 @@ async function withServer<T>(fn: (base: string) => Promise<T>): Promise<T> {
     }
 }
 
+async function createSuperAdmin() {
+    return prisma.user.create({
+        data: { name: 'Test Super Admin', email: `superadmin-${Date.now()}-${Math.random()}@gov.ph`, passwordHash: 'x', role: 'SUPER_ADMIN', status: 'ACTIVE' },
+    });
+}
+
 test('PATCH /api/users/:id updates name/email/role/jurisdiction', async () => {
+    const admin = await createSuperAdmin();
     const user = await prisma.user.create({
         data: {
             name: 'Before Edit', email: `before-${Date.now()}@gov.ph`, passwordHash: 'x',
@@ -25,7 +32,7 @@ test('PATCH /api/users/:id updates name/email/role/jurisdiction', async () => {
         await withServer(async (base) => {
             const res = await fetch(`${base}/api/users/${user.id}`, {
                 method: 'PATCH',
-                headers: { 'Content-Type': 'application/json' },
+                headers: { 'Content-Type': 'application/json', 'x-user-id': admin.id },
                 body: JSON.stringify({
                     name: 'After Edit', email: user.email, role: 'ADMIN',
                     regionCode: 'R2', regionName: 'Region II',
@@ -39,10 +46,12 @@ test('PATCH /api/users/:id updates name/email/role/jurisdiction', async () => {
         });
     } finally {
         await prisma.user.delete({ where: { id: user.id } });
+        await prisma.user.delete({ where: { id: admin.id } });
     }
 });
 
 test('POST /api/users/:id/reset-password issues a new temp password', async () => {
+    const admin = await createSuperAdmin();
     const user = await prisma.user.create({
         data: {
             name: 'Reset Me', email: `reset-${Date.now()}@gov.ph`, passwordHash: 'original-hash',
@@ -52,7 +61,10 @@ test('POST /api/users/:id/reset-password issues a new temp password', async () =
 
     try {
         await withServer(async (base) => {
-            const res = await fetch(`${base}/api/users/${user.id}/reset-password`, { method: 'POST' });
+            const res = await fetch(`${base}/api/users/${user.id}/reset-password`, {
+                method: 'POST',
+                headers: { 'x-user-id': admin.id },
+            });
             assert.equal(res.status, 200);
             const body = await res.json();
             assert.equal(typeof body.tempPassword, 'string');
@@ -64,5 +76,24 @@ test('POST /api/users/:id/reset-password issues a new temp password', async () =
         assert.notEqual(updated.passwordHash, 'original-hash');
     } finally {
         await prisma.user.delete({ where: { id: user.id } });
+        await prisma.user.delete({ where: { id: admin.id } });
+    }
+});
+
+test('LGU_AGENT is forbidden from listing users', async () => {
+    const agent = await prisma.user.create({
+        data: {
+            name: 'Agent', email: `agent-${Date.now()}@gov.ph`, passwordHash: 'x',
+            role: 'LGU_AGENT', status: 'ACTIVE', regionCode: 'R1', regionName: 'Region I',
+        },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/users`, { headers: { 'x-user-id': agent.id } });
+            assert.equal(res.status, 403);
+        });
+    } finally {
+        await prisma.user.delete({ where: { id: agent.id } });
     }
 });

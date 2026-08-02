@@ -3,8 +3,18 @@ import bcrypt from 'bcrypt';
 import crypto from 'crypto';
 import { z } from 'zod';
 import { prisma } from '../lib/prisma';
+import { requireUser } from '../middleware/requireUser';
 
 const router = Router();
+
+// User management is a SUPER_ADMIN/ADMIN concern — an LGU Agent has no reason to see or touch this list.
+router.use(requireUser, (req, res, next) => {
+    if (req.user.role === 'LGU_AGENT') {
+        res.status(403).json({ error: 'Not authorized' });
+        return;
+    }
+    next();
+});
 
 const createUserSchema = z.object({
     name: z.string().min(1),
@@ -16,7 +26,10 @@ const createUserSchema = z.object({
     provinceName: z.string().nullish(),
     municipalityCode: z.string().nullish(),
     municipalityName: z.string().nullish(),
-});
+}).refine(
+    (data) => data.role !== 'LGU_AGENT' || !!data.municipalityCode,
+    { message: 'LGU Agent accounts must be scoped to a specific municipality/city', path: ['municipalityCode'] }
+);
 
 router.get('/', async (_req, res, next) => {
     try {

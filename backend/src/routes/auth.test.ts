@@ -85,3 +85,45 @@ test('POST /api/auth/login rejects a blocked account even with correct credentia
         await prisma.user.delete({ where: { id: user.id } });
     }
 });
+
+test('POST /api/auth/signup creates a CITIZEN account and omits the password hash', async () => {
+    const email = `citizen-${Date.now()}@example.com`;
+    let userId: string | undefined;
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Citizen One', email, password: 'longenoughpassword' }),
+            });
+            assert.equal(res.status, 201);
+            const body = await res.json();
+            assert.equal(body.role, 'CITIZEN');
+            assert.equal(body.passwordHash, undefined);
+            userId = body.id;
+        });
+    } finally {
+        if (userId) await prisma.user.delete({ where: { id: userId } });
+    }
+});
+
+test('POST /api/auth/signup rejects a duplicate email', async () => {
+    const passwordHash = await bcrypt.hash('x', 10);
+    const user = await prisma.user.create({
+        data: { name: 'Existing', email: `dup-${Date.now()}@example.com`, passwordHash, role: 'CITIZEN', status: 'ACTIVE' },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/auth/signup`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name: 'Someone Else', email: user.email, password: 'longenoughpassword' }),
+            });
+            assert.equal(res.status, 409);
+        });
+    } finally {
+        await prisma.user.delete({ where: { id: user.id } });
+    }
+});

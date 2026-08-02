@@ -1,14 +1,16 @@
 import { useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, Clock3, ShieldCheck } from 'lucide-react';
 import { useReports } from '@/context/ReportsContext';
+import { useAuth } from '@/context/AuthContext';
 import ReportDetailPanel from '@/components/map/ReportDetailPanel';
 import StatCard from '@/components/admin/StatCard';
 import ReportCard from '@/components/admin/ReportCard';
 import DateRangeFilter from '@/components/admin/DateRangeFilter';
+import LguFilter, { useLguFilter } from '@/components/admin/LguFilter';
 import { cn } from '@/utils/cn';
 import { formatAvgResolutionTime, isWithinDatePreset, startOfToday, type DatePreset } from '@/utils/reportStats';
 
-type Tab = 'all' | 'pending' | 'unresolved' | 'flagged' | 'resolved';
+type Tab = 'all' | 'pending' | 'unresolved' | 'flagged' | 'resolved' | 'reopened' | 'unassigned';
 
 const TABS: { key: Tab; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -16,10 +18,16 @@ const TABS: { key: Tab; label: string }[] = [
     { key: 'unresolved', label: 'Unresolved' },
     { key: 'flagged', label: 'Flagged' },
     { key: 'resolved', label: 'Resolved' },
+    { key: 'reopened', label: 'Reopened' },
 ];
 
 export default function ReportsPage() {
-    const { reports, loading, error } = useReports();
+    const { reports, loading, error, refresh } = useReports();
+    const { user } = useAuth();
+    const tabs = user?.role === 'SUPER_ADMIN'
+        ? [...TABS, { key: 'unassigned' as const, label: 'Unassigned' }]
+        : TABS;
+    const { selectedLgu, setSelectedLgu, lguOptions, filteredReports: lguFilteredReports } = useLguFilter(reports);
     const [activeTab, setActiveTab] = useState<Tab>('all');
     const [datePreset, setDatePreset] = useState<DatePreset>('month');
     const [customFrom, setCustomFrom] = useState('');
@@ -28,22 +36,24 @@ export default function ReportsPage() {
 
     const stats = useMemo(() => {
         const today = startOfToday();
-        const highSeverityOpen = reports.filter((r) => r.severity === 'HIGH' && r.status !== 'resolved').length;
-        const resolvedToday = reports.filter((r) => r.status === 'resolved' && r.resolvedAt && new Date(r.resolvedAt) >= today).length;
-        const avgTime = formatAvgResolutionTime(reports);
-        const lguResponseRate = reports.length === 0
+        const highSeverityOpen = lguFilteredReports.filter((r) => r.severity === 'HIGH' && r.status !== 'resolved').length;
+        const resolvedToday = lguFilteredReports.filter((r) => r.status === 'resolved' && r.resolvedAt && new Date(r.resolvedAt) >= today).length;
+        const avgTime = formatAvgResolutionTime(lguFilteredReports);
+        const lguResponseRate = lguFilteredReports.length === 0
             ? '—'
-            : `${Math.round((reports.filter((r) => r.lguActionLogged).length / reports.length) * 100)}%`;
+            : `${Math.round((lguFilteredReports.filter((r) => r.lguActionLogged).length / lguFilteredReports.length) * 100)}%`;
 
         return { highSeverityOpen, resolvedToday, avgTime, lguResponseRate };
-    }, [reports]);
+    }, [lguFilteredReports]);
 
     const filteredReports = useMemo(() => {
-        return reports.filter((r) => {
+        return lguFilteredReports.filter((r) => {
+            if (activeTab === 'unassigned') return r.jurisdictionStatus === 'UNASSIGNED';
+            if (activeTab === 'reopened') return r.wasReopened;
             if (activeTab !== 'all' && r.status !== activeTab) return false;
             return isWithinDatePreset(r.createdAt, datePreset, customFrom, customTo);
         });
-    }, [reports, activeTab, datePreset, customFrom, customTo]);
+    }, [lguFilteredReports, activeTab, datePreset, customFrom, customTo]);
 
     return (
         <>
@@ -62,11 +72,11 @@ export default function ReportsPage() {
 
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex gap-1 rounded-lg border border-light-dark bg-white p-1 w-fit">
-                    {TABS.map((tab) => (
+                    {tabs.map((tab) => (
                         <button
                             key={tab.key}
                             type="button"
-                            onClick={() => setActiveTab(tab.key)}
+                            onClick={() => { setActiveTab(tab.key); refresh(); }}
                             className={cn(
                                 'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                                 activeTab === tab.key ? 'bg-primary text-white' : 'text-dark-light hover:bg-light'
@@ -77,14 +87,17 @@ export default function ReportsPage() {
                     ))}
                 </div>
 
-                <DateRangeFilter
-                    preset={datePreset}
-                    onPresetChange={setDatePreset}
-                    customFrom={customFrom}
-                    onCustomFromChange={setCustomFrom}
-                    customTo={customTo}
-                    onCustomToChange={setCustomTo}
-                />
+                <div className="flex flex-wrap items-center gap-2">
+                    <LguFilter value={selectedLgu} onChange={setSelectedLgu} options={lguOptions} />
+                    <DateRangeFilter
+                        preset={datePreset}
+                        onPresetChange={setDatePreset}
+                        customFrom={customFrom}
+                        onCustomFromChange={setCustomFrom}
+                        customTo={customTo}
+                        onCustomToChange={setCustomTo}
+                    />
+                </div>
             </div>
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">

@@ -8,11 +8,13 @@ import { requireUser, requireSuperAdmin } from '../middleware/requireUser';
 const router = Router();
 
 const PENDING_TIMEOUT_MS = 24 * 60 * 60 * 1000;
+const REOPEN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
 const createReportSchema = z.object({
     lat: z.number(),
     lng: z.number(),
     details: z.string().min(1),
+    severity: z.enum(['HIGH', 'LOW']).nullish(),
     imageUrls: z.array(z.string()).default([]),
 });
 
@@ -21,8 +23,13 @@ router.post('/', async (req, res, next) => {
         const { imageUrls, ...data } = createReportSchema.parse(req.body);
         const jurisdiction = await resolveJurisdiction(data.lat, data.lng);
 
+        // Optional — a logged-in citizen gets reporterId set (needed to reopen it later); an
+        // anonymous submission (no header, or a stale/invalid id) still goes through untied.
+        const userId = req.header('x-user-id');
+        const reporterId = userId ? (await prisma.user.findUnique({ where: { id: userId } }))?.id ?? null : null;
+
         const report = await prisma.report.create({
-            data: { ...data, ...jurisdiction, images: { create: imageUrls.map((url) => ({ url })) } },
+            data: { ...data, ...jurisdiction, reporterId, images: { create: imageUrls.map((url) => ({ url })) } },
             include: { images: true, status: true, notes: true },
         });
         res.status(201).json(report);
@@ -59,6 +66,16 @@ const resolveReportSchema = z.object({
 router.patch('/:id/resolve', requireUser, async (req, res, next) => {
     try {
         const { proofImageUrls, note } = resolveReportSchema.parse(req.body);
+        const existing = await prisma.report.findUnique({ where: { id: req.params.id as string }, include: { status: true } });
+        if (!existing) {
+            res.status(404).json({ error: 'Report not found' });
+            return;
+        }
+        if (existing.status.validity !== 'VALID') {
+            res.status(409).json({ error: 'A flagged report cannot be resolved' });
+            return;
+        }
+
         const report = await prisma.report.update({
             where: { id: req.params.id as string },
             data: {
@@ -78,11 +95,13 @@ router.patch('/:id/resolve', requireUser, async (req, res, next) => {
 
 const reopenReportSchema = z.object({
     note: z.string().min(1),
+    // Citizen's optional proof that it's still not actually resolved.
+    imageUrls: z.array(z.string()).default([]),
 });
 
 router.patch('/:id/reopen', requireUser, async (req, res, next) => {
     try {
-        const { note } = reopenReportSchema.parse(req.body);
+        const { note, imageUrls } = reopenReportSchema.parse(req.body);
         const existing = await prisma.report.findUnique({ where: { id: req.params.id as string } });
         if (!existing) {
             res.status(404).json({ error: 'Report not found' });
@@ -98,11 +117,87 @@ router.patch('/:id/reopen', requireUser, async (req, res, next) => {
             data: {
                 statusValue: 'REPORTED',
                 resolvedAt: null,
+                // The old resolution proof no longer applies now that the report's reopened —
+                // clear it so the next resolve attempt's preview isn't masked by stale photos.
+                images: {
+                    deleteMany: { kind: 'RESOLUTION_PROOF' },
+                    create: imageUrls.map((url) => ({ url, kind: 'USER_UPLOAD' as const })),
+                },
                 notes: { create: [{ text: note, kind: 'REOPEN' as const }] },
             },
             include: { images: true, status: true, notes: true },
         });
         res.json(report);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// Citizen-facing reopen: only the reporter who filed it, only while it's RESOLVED, and only
+// within REOPEN_WINDOW_MS of resolution — past that the resolution stands.
+router.patch('/:id/citizen-reopen', requireUser, async (req, res, next) => {
+    try {
+        const { note, imageUrls } = reopenReportSchema.parse(req.body);
+        const existing = await prisma.report.findUnique({ where: { id: req.params.id as string } });
+        if (!existing) {
+            res.status(404).json({ error: 'Report not found' });
+            return;
+        }
+        if (existing.reporterId !== req.user.id) {
+            res.status(403).json({ error: 'Only the person who filed this report can reopen it' });
+            return;
+        }
+        if (existing.statusValue !== 'RESOLVED') {
+            res.status(409).json({ error: 'Only a resolved report can be reopened' });
+            return;
+        }
+        if (!existing.resolvedAt || Date.now() - existing.resolvedAt.getTime() > REOPEN_WINDOW_MS) {
+            res.status(409).json({ error: 'The 7-day reopen window for this report has passed' });
+            return;
+        }
+
+        const report = await prisma.report.update({
+            where: { id: req.params.id as string },
+            data: {
+                statusValue: 'REPORTED',
+                resolvedAt: null,
+                images: {
+                    deleteMany: { kind: 'RESOLUTION_PROOF' },
+                    create: imageUrls.map((url) => ({ url, kind: 'USER_UPLOAD' as const })),
+                },
+                notes: { create: [{ text: note, kind: 'REOPEN' as const }] },
+            },
+            include: { images: true, status: true, notes: true },
+        });
+        res.json(report);
+    } catch (err) {
+        next(err);
+    }
+});
+
+const addRemarkSchema = z.object({
+    text: z.string().min(1),
+});
+
+router.post('/:id/remarks', requireUser, async (req, res, next) => {
+    try {
+        const { text } = addRemarkSchema.parse(req.body);
+        const existing = await prisma.report.findUnique({ where: { id: req.params.id as string } });
+        if (!existing) {
+            res.status(404).json({ error: 'Report not found' });
+            return;
+        }
+        if (existing.reporterId !== req.user.id) {
+            res.status(403).json({ error: 'Only the person who filed this report can add remarks to it' });
+            return;
+        }
+
+        const report = await prisma.report.update({
+            where: { id: req.params.id as string },
+            data: { notes: { create: [{ text, kind: 'CITIZEN_REMARK' as const }] } },
+            include: { images: true, status: true, notes: true },
+        });
+        res.status(201).json(report);
     } catch (err) {
         next(err);
     }
@@ -146,6 +241,7 @@ router.patch('/:id/jurisdiction', requireUser, requireSuperAdmin, async (req, re
         const report = await prisma.report.update({
             where: { id: req.params.id as string },
             data: { ...data, jurisdictionStatus: 'ASSIGNED' },
+            include: { images: true, status: true, notes: true },
         });
         res.json(report);
     } catch (err) {

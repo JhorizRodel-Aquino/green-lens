@@ -153,6 +153,9 @@ export type TrashReport = {
   severity: 'HIGH' | 'LOW';
   details: string;
   locationLabel?: string;
+  municipalityName?: string | null;
+  provinceName?: string | null;
+  regionName?: string | null;
   imageUrls?: string[];
   status: ReportStatus;
   createdAt: string; // ISO timestamp
@@ -161,7 +164,9 @@ export type TrashReport = {
   flaggedAt?: string; // ISO timestamp, set when status becomes 'flagged'
   lguActionLogged?: boolean;
   resolutionProofUrls?: string[]; // "After" photos captured/uploaded when resolving
-  remarks?: { text: string; createdAt: string }[];
+  remarks?: { text: string; createdAt: string; kind?: 'RESOLUTION' | 'REOPEN' | 'CITIZEN_REMARK' }[];
+  wasReopened?: boolean; // true if this report has ever been reopened by the citizen who filed it
+  jurisdictionStatus?: 'ASSIGNED' | 'UNASSIGNED';
 };
 
 export type MyLocation = { lat: number | null; lng: number | null; };
@@ -183,6 +188,23 @@ const RecenterOnMyLocation = ({ myLocation }: { myLocation?: MyLocation }) => {
     map.setView([myLocation.lat, myLocation.lng], map.getZoom());
     hasCentered.current = true;
   }, [map, myLocation]);
+
+  return null;
+};
+
+// Default view should show every pin/heatmap point, not just wherever the map happens to
+// center. Fits the viewport to all reports once, the first time they're available — doesn't
+// fight the user panning/zooming afterwards, and doesn't re-fit as reports change live.
+const FitAllReports = ({ reports }: { reports: TrashReport[] }) => {
+  const map = useMap();
+  const hasFit = useRef(false);
+
+  useEffect(() => {
+    if (hasFit.current || reports.length === 0) return;
+    const bounds = L.latLngBounds(reports.map((r): [number, number] => [r.lat, r.lng]));
+    map.fitBounds(bounds, { padding: [50, 50], maxZoom: 15 });
+    hasFit.current = true;
+  }, [map, reports]);
 
   return null;
 };
@@ -274,8 +296,9 @@ export const TrashMap = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Recenter on the user's location once it's known */}
-        <RecenterOnMyLocation myLocation={myLocation} />
+        {/* Default to fitting every report; only fall back to the user's location when there's nothing to fit */}
+        <FitAllReports reports={reports} />
+        {reports.length === 0 && <RecenterOnMyLocation myLocation={myLocation} />}
 
         {/* Heatmap Component */}
         {showHeatmap && <HeatmapLayer points={heatPoints} />}

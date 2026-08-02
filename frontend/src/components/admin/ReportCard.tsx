@@ -1,6 +1,6 @@
-import { MapPin, Clock, ImageOff } from 'lucide-react';
+import { MapPin, Clock, ImageOff, MapPinOff, ShieldAlert, RotateCcw } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import type { TrashReport } from '@/components/map/TrashMap';
+import { FLAG_REASON_LABELS, type TrashReport } from '@/components/map/TrashMap';
 
 type ReportCardProps = {
     report: TrashReport;
@@ -53,6 +53,24 @@ export default function ReportCard({ report, onClick }: ReportCardProps) {
                     <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize', STATUS_CLASSES[report.status])}>
                         {report.status}
                     </span>
+                    {report.status === 'flagged' && report.flagReason && (
+                        <span className="flex items-center gap-1 rounded-full bg-secondary-light/30 px-2 py-0.5 text-[11px] font-semibold text-secondary-dark">
+                            <ShieldAlert size={11} />
+                            {FLAG_REASON_LABELS[report.flagReason]}
+                        </span>
+                    )}
+                    {report.wasReopened && (
+                        <span className="flex items-center gap-1 rounded-full bg-yellow-100 px-2 py-0.5 text-[11px] font-semibold text-yellow-700">
+                            <RotateCcw size={11} />
+                            Reopened
+                        </span>
+                    )}
+                    {report.jurisdictionStatus === 'UNASSIGNED' && (
+                        <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                            <MapPinOff size={11} />
+                            Unassigned
+                        </span>
+                    )}
                 </div>
 
                 <p className="text-sm text-dark truncate">{report.details}</p>

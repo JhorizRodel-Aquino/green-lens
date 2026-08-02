@@ -16,6 +16,7 @@ enum Role {
   SUPER_ADMIN
   ADMIN
   LGU_AGENT
+  CITIZEN
 }
 
 enum UserStatus {
@@ -42,6 +43,8 @@ model User {
 
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
+
+  reports        Report[]   @relation("ReportedBy")
 }
 
 enum Severity {
@@ -76,6 +79,7 @@ enum ImageKind {
 enum NoteKind {
   RESOLUTION
   REOPEN
+  CITIZEN_REMARK
 }
 
 model Report {
@@ -93,6 +97,11 @@ model Report {
   resolvedAt           DateTime?
   flaggedAt            DateTime?
   lguActionLogged      Boolean             @default(false)
+
+  // Null = anonymous/legacy submission (predates citizen accounts). Only the reporter can
+  // reopen their own resolved report, and only within REOPEN_WINDOW_DAYS of resolution.
+  reporterId           String?
+  reporter             User?               @relation("ReportedBy", fields: [reporterId], references: [id])
 
   regionCode           String?
   regionName           String?

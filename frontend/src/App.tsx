@@ -7,6 +7,7 @@ import UserPage from '@/pages/user/UserPage';
 import IconGallery from '@/pages/IconGallery';
 import LoginPage from '@/pages/LoginPage';
 import RequireAuth from '@/components/layout/RequireAuth';
+import RequireNotLguAgent from '@/components/layout/RequireNotLguAgent';
 import AdminLayout from '@/components/layout/AdminLayout';
 import DashboardPage from '@/pages/admin/DashboardPage';
 import MapViewPage from '@/pages/admin/MapViewPage';
@@ -31,7 +32,9 @@ function App() {
               <Route path="reports" element={<ReportsPage />} />
               <Route path="reports/:id" element={<ReportDetailPage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
-              <Route path="users" element={<UsersPage />} />
+              <Route element={<RequireNotLguAgent />}>
+                <Route path="users" element={<UsersPage />} />
+              </Route>
               <Route path="settings" element={<SettingsPage />} />
             </Route>
           </Route>

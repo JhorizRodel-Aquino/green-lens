@@ -256,6 +256,114 @@ test('PATCH /api/reports/:id/reopen rejects reports that are not RESOLVED', asyn
     }
 });
 
+test('PATCH /api/reports/:id/citizen-reopen allows the reporter within the 7-day window', async () => {
+    const citizen = await prisma.user.create({
+        data: { name: 'Citizen', email: `citizen-reopen-${Date.now()}@example.com`, passwordHash: 'x', role: 'CITIZEN', status: 'ACTIVE' },
+    });
+    const report = await prisma.report.create({
+        data: {
+            lat: 14.32, lng: 120.77, details: 'not actually cleaned', locationLabel: 'Somewhere, Philippines',
+            statusValue: 'RESOLVED', resolvedAt: new Date(), reporterId: citizen.id,
+        },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/citizen-reopen`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': citizen.id },
+                body: JSON.stringify({ note: "Trash is still there, wasn't collected." }),
+            });
+            assert.equal(res.status, 200);
+            const updated = (await res.json()) as { statusValue: string; resolvedAt: string | null };
+            assert.equal(updated.statusValue, 'REPORTED');
+            assert.equal(updated.resolvedAt, null);
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: citizen.id } });
+    }
+});
+
+test('PATCH /api/reports/:id/citizen-reopen rejects a non-reporter', async () => {
+    const citizen = await prisma.user.create({
+        data: { name: 'Citizen', email: `citizen-notowner-${Date.now()}@example.com`, passwordHash: 'x', role: 'CITIZEN', status: 'ACTIVE' },
+    });
+    const otherCitizen = await prisma.user.create({
+        data: { name: 'Other Citizen', email: `citizen-other-${Date.now()}@example.com`, passwordHash: 'x', role: 'CITIZEN', status: 'ACTIVE' },
+    });
+    const report = await prisma.report.create({
+        data: {
+            lat: 14.32, lng: 120.77, details: 'not actually cleaned', locationLabel: 'Somewhere, Philippines',
+            statusValue: 'RESOLVED', resolvedAt: new Date(), reporterId: citizen.id,
+        },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/citizen-reopen`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': otherCitizen.id },
+                body: JSON.stringify({ note: 'not mine but trying anyway' }),
+            });
+            assert.equal(res.status, 403);
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: citizen.id } });
+        await prisma.user.delete({ where: { id: otherCitizen.id } });
+    }
+});
+
+test('PATCH /api/reports/:id/citizen-reopen rejects past the 7-day window', async () => {
+    const citizen = await prisma.user.create({
+        data: { name: 'Citizen', email: `citizen-expired-${Date.now()}@example.com`, passwordHash: 'x', role: 'CITIZEN', status: 'ACTIVE' },
+    });
+    const eightDaysAgo = new Date(Date.now() - 8 * 24 * 60 * 60 * 1000);
+    const report = await prisma.report.create({
+        data: {
+            lat: 14.32, lng: 120.77, details: 'resolved a while ago', locationLabel: 'Somewhere, Philippines',
+            statusValue: 'RESOLVED', resolvedAt: eightDaysAgo, reporterId: citizen.id,
+        },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/${report.id}/citizen-reopen`, {
+                method: 'PATCH',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': citizen.id },
+                body: JSON.stringify({ note: 'too late but trying anyway' }),
+            });
+            assert.equal(res.status, 409);
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: citizen.id } });
+    }
+});
+
+test('POST /api/reports sets reporterId when the caller is logged in', async () => {
+    const citizen = await prisma.user.create({
+        data: { name: 'Citizen', email: `citizen-create-${Date.now()}@example.com`, passwordHash: 'x', role: 'CITIZEN', status: 'ACTIVE' },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'x-user-id': citizen.id },
+                body: JSON.stringify({ lat: 14.32, lng: 120.77, details: 'trash pile' }),
+            });
+            assert.equal(res.status, 201);
+            const body = await res.json();
+            assert.equal(body.reporterId, citizen.id);
+            await prisma.report.delete({ where: { id: body.id } });
+        });
+    } finally {
+        await prisma.user.delete({ where: { id: citizen.id } });
+    }
+});
+
 test('PATCH /api/reports/:id/status flags a report with a reason', async () => {
     const agent = await prisma.user.create({
         data: {

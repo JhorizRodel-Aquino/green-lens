@@ -179,6 +179,10 @@ export default function UsersPage() {
     async function handleSubmit(e: FormEvent<HTMLFormElement>) {
         e.preventDefault();
         if (!name.trim() || !email.trim() || !selectedRegion) return;
+        if (role === 'LGU_AGENT' && !selectedMunicipality) {
+            setSubmitError('LGU Agent accounts must be scoped to a specific municipality/city.');
+            return;
+        }
 
         setSubmitting(true);
         setSubmitError('');
@@ -407,28 +411,34 @@ export default function UsersPage() {
                             </Field>
 
                             {regionCode && (
-                                <Field label={isNCR ? "Step 2: District (optional — leave blank for entire region)" : "Step 2: Province (optional — leave blank for entire region)"}>
+                                <Field label={role === 'LGU_AGENT' ? (isNCR ? 'Step 2: District (required for LGU Agent)' : 'Step 2: Province (required for LGU Agent)') : (isNCR ? 'Step 2: District (optional — leave blank for entire region)' : 'Step 2: Province (optional — leave blank for entire region)')}>
                                     <select
                                         className="w-full bg-light border border-light-dark rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                                         value={provinceCode}
                                         onChange={(e) => onProvinceChange(e.target.value)}
                                         disabled={loadingProvinces}
+                                        required={role === 'LGU_AGENT'}
                                     >
-                                        <option value={ENTIRE}>Entire region</option>
+                                        {role !== 'LGU_AGENT' && <option value={ENTIRE}>Entire region</option>}
+                                        {role === 'LGU_AGENT' && <option value={ENTIRE} disabled>{isNCR ? 'Choose district...' : 'Choose province...'}</option>}
                                         {provinces.map((p) => <option key={p.code} value={p.code}>{p.name}</option>)}
                                     </select>
                                 </Field>
                             )}
 
                             {regionCode && provinceCode && (
-                                <Field label={isNCR ? "Step 3: City/Municipality (optional — leave blank for entire district)" : "Step 3: Municipality/City (optional — leave blank for entire province)"}>
+                                <Field label={role === 'LGU_AGENT' ? 'Step 3: Municipality/City (required for LGU Agent)' : (isNCR ? 'Step 3: City/Municipality (optional — leave blank for entire district)' : 'Step 3: Municipality/City (optional — leave blank for entire province)')}>
                                     <select
                                         className="w-full bg-light border border-light-dark rounded-lg p-3 text-sm focus:outline-none focus:ring-2 focus:ring-primary disabled:opacity-50"
                                         value={municipalityCode}
                                         onChange={(e) => setMunicipalityCode(e.target.value)}
                                         disabled={loadingMunicipalities}
+                                        required={role === 'LGU_AGENT'}
                                     >
-                                        <option value={ENTIRE}>{isNCR ? 'Entire district' : 'Entire province'}</option>
+                                        {role !== 'LGU_AGENT' && (
+                                            <option value={ENTIRE}>{isNCR ? 'Entire district' : 'Entire province'}</option>
+                                        )}
+                                        {role === 'LGU_AGENT' && <option value={ENTIRE} disabled>Choose municipality/city...</option>}
                                         {municipalities.map((m) => <option key={m.code} value={m.code}>{m.name}</option>)}
                                     </select>
                                 </Field>

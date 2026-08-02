@@ -11,14 +11,18 @@ interface ApiReport {
     severity: 'HIGH' | 'LOW' | null;
     details: string;
     locationLabel: string;
+    municipalityName: string | null;
+    provinceName: string | null;
+    regionName: string | null;
     images: { url: string; kind: 'USER_UPLOAD' | 'RESOLUTION_PROOF' }[];
     statusValue: ApiStatus;
     status: { value: ApiStatus; validity: 'VALID' | 'FLAGGED' };
-    notes: { text: string; kind: 'RESOLUTION' | 'REOPEN'; createdAt: string }[];
+    notes: { text: string; kind: 'RESOLUTION' | 'REOPEN' | 'CITIZEN_REMARK'; createdAt: string }[];
     createdAt: string;
     resolvedAt: string | null;
     flaggedAt: string | null;
     lguActionLogged: boolean;
+    jurisdictionStatus: 'ASSIGNED' | 'UNASSIGNED';
 }
 
 function toTrashReport(r: ApiReport): TrashReport {
@@ -34,10 +38,13 @@ function toTrashReport(r: ApiReport): TrashReport {
         id: r.id,
         lat: r.lat,
         lng: r.lng,
-        // ponytail: no LGU-facing "set severity" flow exists yet — reporters don't send it, default LOW until one does
+        // Reporter sends severity; only legacy/null rows fall back to LOW.
         severity: r.severity ?? 'LOW',
         details: r.details,
         locationLabel: r.locationLabel,
+        municipalityName: r.municipalityName,
+        provinceName: r.provinceName,
+        regionName: r.regionName,
         imageUrls: r.images.filter((i) => i.kind === 'USER_UPLOAD').map((i) => i.url),
         resolutionProofUrls: r.images.filter((i) => i.kind === 'RESOLUTION_PROOF').map((i) => i.url),
         status,
@@ -49,7 +56,10 @@ function toTrashReport(r: ApiReport): TrashReport {
         remarks: (r.notes ?? []).map((n) => ({
             text: n.kind === 'REOPEN' ? `Reopened: ${n.text}` : n.text,
             createdAt: n.createdAt,
+            kind: n.kind,
         })),
+        wasReopened: (r.notes ?? []).some((n) => n.kind === 'REOPEN'),
+        jurisdictionStatus: r.jurisdictionStatus,
     };
 }
 
@@ -82,10 +92,24 @@ export async function resolveReportApi(id: string, proofImageUrls: string[], not
     return toTrashReport(report);
 }
 
-export async function reopenReportApi(id: string, note: string): Promise<TrashReport> {
+export async function reopenReportApi(id: string, note: string, imageUrls?: string[]): Promise<TrashReport> {
     const report = await apiFetch<ApiReport>(`/api/reports/${id}/reopen`, {
         method: 'PATCH',
-        body: JSON.stringify({ note }),
+        body: JSON.stringify({ note, imageUrls }),
+    });
+    return toTrashReport(report);
+}
+
+export type AssignJurisdictionPayload = {
+    regionCode: string; regionName: string;
+    provinceCode?: string | null; provinceName?: string | null;
+    municipalityCode?: string | null; municipalityName?: string | null;
+};
+
+export async function assignJurisdictionApi(id: string, payload: AssignJurisdictionPayload): Promise<TrashReport> {
+    const report = await apiFetch<ApiReport>(`/api/reports/${id}/jurisdiction`, {
+        method: 'PATCH',
+        body: JSON.stringify(payload),
     });
     return toTrashReport(report);
 }
