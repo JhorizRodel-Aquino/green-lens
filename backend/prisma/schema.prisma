@@ -44,7 +44,8 @@ model User {
   createdAt      DateTime   @default(now())
   updatedAt      DateTime   @updatedAt
 
-  reports        Report[]   @relation("ReportedBy")
+  reports        Report[]             @relation("ReportedBy")
+  confirmations  ReportConfirmation[]
 }
 
 enum Severity {
@@ -110,6 +111,21 @@ model Report {
   municipalityCode     String?
   municipalityName     String?
   jurisdictionStatus   JurisdictionStatus  @default(UNASSIGNED)
+
+  confirmations        ReportConfirmation[]
+}
+
+// "I saw this too" — one per (report, citizen). Signals duplicate/still-there activity
+// without creating a whole new report.
+model ReportConfirmation {
+  id        String   @id @default(uuid())
+  reportId  String
+  report    Report   @relation(fields: [reportId], references: [id], onDelete: Cascade)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+
+  @@unique([reportId, userId])
 }
 
 model ReportImage {

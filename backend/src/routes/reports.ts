@@ -18,6 +18,51 @@ const createReportSchema = z.object({
     imageUrls: z.array(z.string()).default([]),
 });
 
+function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
+    const R = 6_371_000;
+    const toRad = (deg: number) => (deg * Math.PI) / 180;
+    const dLat = toRad(lat2 - lat1);
+    const dLng = toRad(lng2 - lng1);
+    const a = Math.sin(dLat / 2) ** 2 + Math.cos(toRad(lat1)) * Math.cos(toRad(lat2)) * Math.sin(dLng / 2) ** 2;
+    return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+}
+
+const nearbyQuerySchema = z.object({
+    lat: z.coerce.number(),
+    lng: z.coerce.number(),
+    radiusMeters: z.coerce.number().positive().max(1000).default(20),
+});
+
+// Duplicate-check for the "Create Report" flow — public, no auth needed to check before submitting.
+router.get('/nearby', async (req, res, next) => {
+    try {
+        const { lat, lng, radiusMeters } = nearbyQuerySchema.parse(req.query);
+
+        // Coarse bounding box first (cheap, index-friendly), then exact haversine filter.
+        const latDelta = radiusMeters / 111_320;
+        const lngDelta = radiusMeters / (111_320 * Math.cos((lat * Math.PI) / 180) || 1);
+
+        const candidates = await prisma.report.findMany({
+            where: {
+                statusValue: { in: ['PENDING', 'REPORTED'] },
+                lat: { gte: lat - latDelta, lte: lat + latDelta },
+                lng: { gte: lng - lngDelta, lte: lng + lngDelta },
+            },
+            include: { images: true, status: true, _count: { select: { confirmations: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
+
+        const nearby = candidates
+            .map((r) => ({ ...r, distanceMeters: Math.round(distanceMeters(lat, lng, r.lat, r.lng)) }))
+            .filter((r) => r.distanceMeters <= radiusMeters)
+            .sort((a, b) => a.distanceMeters - b.distanceMeters);
+
+        res.json(nearby);
+    } catch (err) {
+        next(err);
+    }
+});
+
 router.post('/', async (req, res, next) => {
     try {
         const { imageUrls, ...data } = createReportSchema.parse(req.body);
@@ -51,7 +96,11 @@ router.get('/', requireUser, async (req, res, next) => {
         });
 
         const where = buildJurisdictionFilter(req.user);
-        const reports = await prisma.report.findMany({ where, include: { images: true, status: true, notes: true }, orderBy: { createdAt: 'desc' } });
+        const reports = await prisma.report.findMany({
+            where,
+            include: { images: true, status: true, notes: true, _count: { select: { confirmations: true } } },
+            orderBy: { createdAt: 'desc' },
+        });
         res.json(reports);
     } catch (err) {
         next(err);
@@ -198,6 +247,57 @@ router.post('/:id/remarks', requireUser, async (req, res, next) => {
             include: { images: true, status: true, notes: true },
         });
         res.status(201).json(report);
+    } catch (err) {
+        next(err);
+    }
+});
+
+// "I saw this too" — one per (report, citizen). Not the reporter-only remarks/reopen: anyone
+// logged in can confirm any report, that's the point (independent corroboration).
+router.post('/:id/confirm', requireUser, async (req, res, next) => {
+    try {
+        const existing = await prisma.report.findUnique({ where: { id: req.params.id as string } });
+        if (!existing) {
+            res.status(404).json({ error: 'Report not found' });
+            return;
+        }
+
+        try {
+            await prisma.reportConfirmation.create({
+                data: { reportId: req.params.id as string, userId: req.user.id },
+            });
+        } catch (err: any) {
+            if (err?.code === 'P2002') {
+                res.status(409).json({ error: 'You already confirmed this report' });
+                return;
+            }
+            throw err;
+        }
+
+        const report = await prisma.report.findUnique({
+            where: { id: req.params.id as string },
+            include: { images: true, status: true, notes: true, _count: { select: { confirmations: true } } },
+        });
+        res.status(201).json(report);
+    } catch (err) {
+        next(err);
+    }
+});
+
+router.delete('/:id/confirm', requireUser, async (req, res, next) => {
+    try {
+        await prisma.reportConfirmation.deleteMany({
+            where: { reportId: req.params.id as string, userId: req.user.id },
+        });
+        const report = await prisma.report.findUnique({
+            where: { id: req.params.id as string },
+            include: { images: true, status: true, notes: true, _count: { select: { confirmations: true } } },
+        });
+        if (!report) {
+            res.status(404).json({ error: 'Report not found' });
+            return;
+        }
+        res.json(report);
     } catch (err) {
         next(err);
     }
