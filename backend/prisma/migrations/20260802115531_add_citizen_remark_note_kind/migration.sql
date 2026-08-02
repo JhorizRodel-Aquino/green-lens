@@ -1,0 +1,2 @@
+-- AlterEnum
+ALTER TYPE "NoteKind" ADD VALUE 'CITIZEN_REMARK';
