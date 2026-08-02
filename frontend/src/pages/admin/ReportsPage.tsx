@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { AlertTriangle, CheckCircle2, Clock3, ShieldCheck } from 'lucide-react';
 import { useReports } from '@/context/ReportsContext';
 import { useAuth } from '@/context/AuthContext';
@@ -7,10 +8,13 @@ import StatCard from '@/components/admin/StatCard';
 import ReportCard from '@/components/admin/ReportCard';
 import DateRangeFilter from '@/components/admin/DateRangeFilter';
 import LguFilter, { useLguFilter } from '@/components/admin/LguFilter';
+import { useJurisdictionCoverage } from '@/components/admin/useJurisdictionCoverage';
 import { cn } from '@/utils/cn';
 import { formatAvgResolutionTime, isWithinDatePreset, startOfToday, type DatePreset } from '@/utils/reportStats';
 
-type Tab = 'all' | 'pending' | 'unresolved' | 'flagged' | 'resolved' | 'reopened' | 'unassigned';
+type Tab = 'all' | 'pending' | 'unresolved' | 'flagged' | 'resolved' | 'reopened' | 'unassigned' | 'orphaned' | 'active';
+
+const VALID_TABS: Tab[] = ['all', 'pending', 'unresolved', 'flagged', 'resolved', 'reopened', 'unassigned', 'orphaned', 'active'];
 
 const TABS: { key: Tab; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -24,11 +28,26 @@ const TABS: { key: Tab; label: string }[] = [
 export default function ReportsPage() {
     const { reports, loading, error, refresh } = useReports();
     const { user } = useAuth();
-    const tabs = user?.role === 'SUPER_ADMIN'
-        ? [...TABS, { key: 'unassigned' as const, label: 'Unassigned' }]
+    const isSuperAdmin = user?.role === 'SUPER_ADMIN';
+    const tabs = isSuperAdmin
+        ? [...TABS, { key: 'unassigned' as const, label: 'Unassigned' }, { key: 'orphaned' as const, label: 'No LGU Coverage' }]
         : TABS;
     const { selectedLgu, setSelectedLgu, lguOptions, filteredReports: lguFilteredReports } = useLguFilter(reports);
-    const [activeTab, setActiveTab] = useState<Tab>('all');
+    const { isOrphaned } = useJurisdictionCoverage();
+    const [searchParams] = useSearchParams();
+    const tabFromUrl = searchParams.get('tab');
+    const [activeTab, setActiveTab] = useState<Tab>(
+        tabFromUrl && (VALID_TABS as string[]).includes(tabFromUrl) ? (tabFromUrl as Tab) : 'all'
+    );
+
+    // Dashboard cards link here with ?tab=... — react to it even when the page doesn't remount
+    // (e.g. clicking a different card while already on this page).
+    useEffect(() => {
+        if (tabFromUrl && (VALID_TABS as string[]).includes(tabFromUrl)) {
+            setActiveTab(tabFromUrl as Tab);
+            refresh();
+        }
+    }, [tabFromUrl]);
     const [datePreset, setDatePreset] = useState<DatePreset>('month');
     const [customFrom, setCustomFrom] = useState('');
     const [customTo, setCustomTo] = useState('');
@@ -49,11 +68,13 @@ export default function ReportsPage() {
     const filteredReports = useMemo(() => {
         return lguFilteredReports.filter((r) => {
             if (activeTab === 'unassigned') return r.jurisdictionStatus === 'UNASSIGNED';
+            if (activeTab === 'orphaned') return isOrphaned(r);
             if (activeTab === 'reopened') return r.wasReopened;
+            if (activeTab === 'active') return r.status !== 'resolved';
             if (activeTab !== 'all' && r.status !== activeTab) return false;
             return isWithinDatePreset(r.createdAt, datePreset, customFrom, customTo);
         });
-    }, [lguFilteredReports, activeTab, datePreset, customFrom, customTo]);
+    }, [lguFilteredReports, activeTab, datePreset, customFrom, customTo, isOrphaned]);
 
     return (
         <>
@@ -102,7 +123,12 @@ export default function ReportsPage() {
 
             <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
                 {filteredReports.map((report) => (
-                    <ReportCard key={report.id} report={report} onClick={() => setSelectedReportId(report.id)} />
+                    <ReportCard
+                        key={report.id}
+                        report={report}
+                        onClick={() => setSelectedReportId(report.id)}
+                        orphaned={isSuperAdmin && isOrphaned(report)}
+                    />
                 ))}
 
                 {filteredReports.length === 0 && (

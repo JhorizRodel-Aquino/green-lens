@@ -156,6 +156,9 @@ export type TrashReport = {
   municipalityName?: string | null;
   provinceName?: string | null;
   regionName?: string | null;
+  municipalityCode?: string | null;
+  provinceCode?: string | null;
+  regionCode?: string | null;
   imageUrls?: string[];
   status: ReportStatus;
   createdAt: string; // ISO timestamp

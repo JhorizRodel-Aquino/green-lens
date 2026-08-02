@@ -14,6 +14,9 @@ interface ApiReport {
     municipalityName: string | null;
     provinceName: string | null;
     regionName: string | null;
+    municipalityCode: string | null;
+    provinceCode: string | null;
+    regionCode: string | null;
     images: { url: string; kind: 'USER_UPLOAD' | 'RESOLUTION_PROOF' }[];
     statusValue: ApiStatus;
     status: { value: ApiStatus; validity: 'VALID' | 'FLAGGED' };
@@ -45,6 +48,9 @@ function toTrashReport(r: ApiReport): TrashReport {
         municipalityName: r.municipalityName,
         provinceName: r.provinceName,
         regionName: r.regionName,
+        municipalityCode: r.municipalityCode,
+        provinceCode: r.provinceCode,
+        regionCode: r.regionCode,
         imageUrls: r.images.filter((i) => i.kind === 'USER_UPLOAD').map((i) => i.url),
         resolutionProofUrls: r.images.filter((i) => i.kind === 'RESOLUTION_PROOF').map((i) => i.url),
         status,

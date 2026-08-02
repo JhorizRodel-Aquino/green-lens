@@ -13,6 +13,7 @@ import {
     reportsInPeriod, pctChange, avgResolutionHours, satisfactionRate, type DatePreset,
 } from '@/utils/reportStats';
 import LguFilter, { useLguFilter } from '@/components/admin/LguFilter';
+import TopTenModal from '@/components/admin/TopTenModal';
 
 const DISTRICT_TRENDS = [
     'District 3 resolution speed improved by 12% this week. This correlates with the new dispatch protocol.',
@@ -48,6 +49,7 @@ export default function DashboardPage() {
     const [customFrom, setCustomFrom] = useState('');
     const [customTo, setCustomTo] = useState('');
     const { selectedLgu, setSelectedLgu, lguOptions, filteredReports: lguFilteredReports } = useLguFilter(reports);
+    const [openModal, setOpenModal] = useState<'reports' | 'bottlenecks' | 'champions' | null>(null);
 
     const filteredReports = useMemo(
         () => lguFilteredReports.filter((r) => isWithinDatePreset(r.createdAt, datePreset, customFrom, customTo)),
@@ -79,19 +81,20 @@ export default function DashboardPage() {
     }, [lguFilteredReports, filteredReports, datePreset, customFrom, customTo]);
 
     // Top locations by total report count, ranked by locationLabel
-    const topReports = useMemo(() => {
+    const topReportsAll = useMemo(() => {
         const counts = new Map<string, number>();
         for (const r of filteredReports) {
             const label = r.locationLabel ?? 'Unknown location';
             counts.set(label, (counts.get(label) ?? 0) + 1);
         }
-        const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3);
+        const ranked = [...counts.entries()].sort((a, b) => b[1] - a[1]).slice(0, 10);
         const max = ranked[0]?.[1] ?? 1;
         return ranked.map(([name, count]) => ({ name, count, pct: Math.round((count / max) * 100) }));
     }, [filteredReports]);
+    const topReports = topReportsAll.slice(0, 3);
 
     // Bottlenecks: locations with the most still-unresolved reports
-    const bottlenecks = useMemo(() => {
+    const bottlenecksAll = useMemo(() => {
         const counts = new Map<string, number>();
         for (const r of filteredReports) {
             if (r.status === 'resolved') continue;
@@ -100,9 +103,10 @@ export default function DashboardPage() {
         }
         return [...counts.entries()]
             .sort((a, b) => b[1] - a[1])
-            .slice(0, 3)
+            .slice(0, 10)
             .map(([name, count], i) => ({ rank: i + 1, name, count, featured: i === 0 }));
     }, [filteredReports]);
+    const bottlenecks = bottlenecksAll.slice(0, 3);
 
     // Per-jurisdiction stats, only meaningful for SUPER_ADMIN (sees all LGUs)
     const jurisdictionStats = useMemo(() => {
@@ -142,13 +146,14 @@ export default function DashboardPage() {
         [jurisdictionStats]
     );
 
-    const champions = useMemo(
+    const championsAll = useMemo(
         () => [...jurisdictionStats]
             .sort((a, b) => b.resolved - a.resolved)
-            .slice(0, 3)
+            .slice(0, 10)
             .map((j, i) => ({ name: j.name, count: j.resolved, featured: i === 0 })),
         [jurisdictionStats]
     );
+    const champions = championsAll.slice(0, 3);
 
     const fastestResponders = useMemo(
         () => jurisdictionStats
@@ -196,7 +201,7 @@ export default function DashboardPage() {
                     }
                 />
                 <StatCard
-                    label="Active Unresolved"
+                    label="Active (Not Resolved)"
                     value={String(stats.activeUnresolved)}
                     icon={AlertTriangle}
                     tone="danger"
@@ -218,7 +223,7 @@ export default function DashboardPage() {
                     }
                 />
                 <StatCard
-                    label="Resolved, Not Reopened"
+                    label="Resolution Success Rate"
                     value={stats.csat !== null ? `${stats.csat.toFixed(0)}%` : '—'}
                     icon={Star}
                     tone="accent"
@@ -294,7 +299,7 @@ export default function DashboardPage() {
                             </div>
                         ))}
                         <div className="pt-2 text-center border-t border-light-dark">
-                            <button type="button" className="text-primary text-sm font-medium hover:underline">View All 10</button>
+                            <button type="button" onClick={() => setOpenModal('reports')} className="text-primary text-sm font-medium hover:underline">View All 10</button>
                         </div>
                     </div>
                 </div>
@@ -314,7 +319,7 @@ export default function DashboardPage() {
                         ))}
                     </div>
                     <div className="pt-2 text-center border-t border-light-dark mt-3">
-                        <button type="button" className="text-red-600 text-sm font-medium hover:underline">Escalate Units</button>
+                        <button type="button" onClick={() => setOpenModal('bottlenecks')} className="text-primary text-sm font-medium hover:underline">View All 10</button>
                     </div>
                 </div>
 
@@ -339,7 +344,7 @@ export default function DashboardPage() {
                             ))}
                         </div>
                         <div className="pt-2 text-center border-t border-light-dark mt-3">
-                            <button type="button" className="text-primary text-sm font-medium hover:underline">Performance Rewards</button>
+                            <button type="button" onClick={() => setOpenModal('champions')} className="text-primary text-sm font-medium hover:underline">View All 10</button>
                         </div>
                     </div>
                 )}
@@ -370,6 +375,28 @@ export default function DashboardPage() {
                     </div>
                 )}
             </div>
+
+            {openModal === 'reports' && (
+                <TopTenModal
+                    title="Top 10: Most Reports"
+                    items={topReportsAll.map((r) => ({ name: shortenLocation(r.name), value: String(r.count) }))}
+                    onClose={() => setOpenModal(null)}
+                />
+            )}
+            {openModal === 'bottlenecks' && (
+                <TopTenModal
+                    title="Top 10: Bottlenecks"
+                    items={bottlenecksAll.map((b) => ({ name: shortenLocation(b.name), value: `${b.count} active` }))}
+                    onClose={() => setOpenModal(null)}
+                />
+            )}
+            {openModal === 'champions' && (
+                <TopTenModal
+                    title="Resolution Champions"
+                    items={championsAll.map((c) => ({ name: c.name, value: `${c.count} fixed` }))}
+                    onClose={() => setOpenModal(null)}
+                />
+            )}
         </div>
     );
 }

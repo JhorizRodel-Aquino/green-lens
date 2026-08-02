@@ -7,6 +7,7 @@ type StatCardProps = {
     icon: LucideIcon;
     tone?: 'default' | 'danger' | 'success' | 'accent';
     trend?: { direction: 'up' | 'down'; label: string; tone?: 'success' | 'danger' | 'neutral' };
+    onClick?: () => void;
 };
 
 const TONE_CLASSES: Record<NonNullable<StatCardProps['tone']>, string> = {
@@ -22,11 +23,20 @@ const TREND_CLASSES: Record<'success' | 'danger' | 'neutral', string> = {
     neutral: 'text-dark-light',
 };
 
-export default function StatCard({ label, value, icon: Icon, tone = 'default', trend }: StatCardProps) {
+export default function StatCard({ label, value, icon: Icon, tone = 'default', trend, onClick }: StatCardProps) {
     const TrendIcon = trend?.direction === 'down' ? TrendingDown : TrendingUp;
 
     return (
-        <div className="flex flex-col gap-3 rounded-xl border border-light-dark bg-white p-4">
+        <div
+            onClick={onClick}
+            role={onClick ? 'button' : undefined}
+            tabIndex={onClick ? 0 : undefined}
+            onKeyDown={onClick ? (e) => (e.key === 'Enter' || e.key === ' ') && onClick() : undefined}
+            className={cn(
+                'flex flex-col gap-3 rounded-xl border border-light-dark bg-white p-4',
+                onClick && 'cursor-pointer transition-shadow hover:shadow-md hover:border-primary/40'
+            )}
+        >
             <div className="flex items-center gap-3">
                 <div className={cn('flex h-10 w-10 shrink-0 items-center justify-center rounded-lg', TONE_CLASSES[tone])}>
                     <Icon size={20} />

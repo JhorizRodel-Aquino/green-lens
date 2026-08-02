@@ -1,10 +1,11 @@
-import { MapPin, Clock, ImageOff, MapPinOff, ShieldAlert, RotateCcw } from 'lucide-react';
+import { MapPin, Clock, ImageOff, MapPinOff, ShieldAlert, RotateCcw, UserX } from 'lucide-react';
 import { cn } from '@/utils/cn';
 import { FLAG_REASON_LABELS, type TrashReport } from '@/components/map/TrashMap';
 
 type ReportCardProps = {
     report: TrashReport;
     onClick: () => void;
+    orphaned?: boolean;
 };
 
 const STATUS_CLASSES: Record<TrashReport['status'], string> = {
@@ -23,7 +24,7 @@ function timeAgo(iso: string): string {
     return `${Math.floor(hours / 24)}d ago`;
 }
 
-export default function ReportCard({ report, onClick }: ReportCardProps) {
+export default function ReportCard({ report, onClick, orphaned }: ReportCardProps) {
     const thumbnail = report.imageUrls?.[0];
 
     return (
@@ -69,6 +70,12 @@ export default function ReportCard({ report, onClick }: ReportCardProps) {
                         <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
                             <MapPinOff size={11} />
                             Unassigned
+                        </span>
+                    )}
+                    {orphaned && (
+                        <span className="flex items-center gap-1 rounded-full bg-red-100 px-2 py-0.5 text-[11px] font-semibold text-red-700">
+                            <UserX size={11} />
+                            No LGU Coverage
                         </span>
                     )}
                 </div>
