@@ -282,7 +282,7 @@ export default function DashboardPage() {
             </div>
 
             {/* Leaderboards bento grid */}
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 2xl:grid-cols-4 gap-5">
                 <div className="rounded-xl border border-light-dark bg-white p-4 flex flex-col">
                     <h4 className="text-xs font-semibold uppercase tracking-wide text-dark-light mb-3">Top 10: Most Reports</h4>
                     <div className="space-y-3">
