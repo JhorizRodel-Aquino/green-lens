@@ -35,9 +35,10 @@ After any `schema.prisma` change, run `npx prisma generate` explicitly — it's 
 ```bash
 cd frontend
 npm install
+cp .env.example .env   # match backend PORT
 npm run dev              # http://localhost:5173
 ```
-Frontend expects the backend at `http://localhost:4000` (see `frontend/src/utils/api.ts`).
+Frontend calls `VITE_API_BASE_URL`, falling back to `http://localhost:4000` if unset (see `frontend/src/utils/api.ts`). If backend `PORT` isn't 4000 (e.g. port 4000 taken by another project), set `frontend/.env` to match.
 
 ## Common issues
 - **500 on any DB-backed route (e.g. `/api/auth/login`)** — usually Postgres isn't reachable. Check with:
