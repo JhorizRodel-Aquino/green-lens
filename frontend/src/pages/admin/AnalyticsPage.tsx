@@ -1,13 +1,13 @@
 import { useMemo, useState } from 'react';
 import { FileText, CheckCircle2, Clock3, ShieldCheck } from 'lucide-react';
-import { ResponsiveContainer, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, Legend } from 'recharts';
+import { ResponsiveContainer, LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, Legend, Cell } from 'recharts';
 import { useReports } from '@/context/ReportsContext';
 import { useAuth } from '@/context/AuthContext';
 import StatCard from '@/components/admin/StatCard';
 import DateRangeFilter from '@/components/admin/DateRangeFilter';
 import LguFilter, { useLguFilter } from '@/components/admin/LguFilter';
 import { formatAvgResolutionTime, isWithinDatePreset, type DatePreset } from '@/utils/reportStats';
-import { bucketReportsOverTime } from '@/utils/analyticsStats';
+import { bucketReportsOverTime, computeJurisdictionStats } from '@/utils/analyticsStats';
 
 export default function AnalyticsPage() {
     const { reports } = useReports();
@@ -37,6 +37,12 @@ export default function AnalyticsPage() {
         () => bucketReportsOverTime(filteredReports, datePreset, customFrom, customTo),
         [filteredReports, datePreset, customFrom, customTo]
     );
+
+    const jurisdictionStats = useMemo(
+        () => [...computeJurisdictionStats(filteredReports)].sort((a, b) => b.resolutionRate - a.resolutionRate),
+        [filteredReports]
+    );
+    const showJurisdictionChart = user?.role !== 'LGU_AGENT';
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -81,6 +87,30 @@ export default function AnalyticsPage() {
                     </ResponsiveContainer>
                 )}
             </div>
+
+            {showJurisdictionChart && (
+                <div className="rounded-xl border border-light-dark bg-white p-4">
+                    <h3 className="text-sm font-semibold text-dark mb-4">Per-Jurisdiction Resolution Rate</h3>
+                    {jurisdictionStats.length === 0 ? (
+                        <p className="text-sm text-dark-light py-10 text-center">No data for this period.</p>
+                    ) : (
+                        <ResponsiveContainer width="100%" height={Math.max(200, jurisdictionStats.length * 40)}>
+                            <BarChart data={jurisdictionStats} layout="vertical" margin={{ left: 24 }}>
+                                <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" horizontal={false} />
+                                <XAxis type="number" domain={[0, 100]} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} unit="%" />
+                                <YAxis type="category" dataKey="name" width={120} tick={{ fontSize: 12, fill: '#0f172a' }} axisLine={false} tickLine={false} />
+                                <Tooltip
+                                    contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }}
+                                    formatter={(value) => [`${Math.round(Number(value))}%`, 'Resolution Rate']}
+                                />
+                                <Bar dataKey="resolutionRate" radius={[0, 4, 4, 0]}>
+                                    {jurisdictionStats.map((j) => <Cell key={j.name} fill="#16a34a" />)}
+                                </Bar>
+                            </BarChart>
+                        </ResponsiveContainer>
+                    )}
+                </div>
+            )}
         </div>
     );
 }
