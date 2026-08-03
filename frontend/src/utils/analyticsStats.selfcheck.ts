@@ -1,5 +1,5 @@
 // Run with: npx tsx frontend/src/utils/analyticsStats.selfcheck.ts
-import { bucketReportsOverTime } from './analyticsStats';
+import { bucketReportsOverTime, computeJurisdictionStats, computeStatusBreakdown } from './analyticsStats';
 import type { TrashReport } from '../components/map/TrashMap';
 
 function report(overrides: Partial<TrashReport>): TrashReport {
@@ -43,5 +43,32 @@ const hourlyReports: TrashReport[] = [
 ];
 const hourlyBuckets = bucketReportsOverTime(hourlyReports, 'today', '', '');
 console.assert(hourlyBuckets.length === 2, `expected 2 hourly buckets, got ${hourlyBuckets.length}`);
+
+// computeJurisdictionStats: flagged reports excluded, resolution rate and avg hours correct.
+const jReports: TrashReport[] = [
+    report({ id: 'j1', municipalityName: 'Manila', status: 'resolved', createdAt: '2026-01-01T00:00:00.000Z', resolvedAt: '2026-01-02T00:00:00.000Z' } as Partial<TrashReport>),
+    report({ id: 'j2', municipalityName: 'Manila', status: 'pending' } as Partial<TrashReport>),
+    report({ id: 'j3', municipalityName: 'Manila', status: 'flagged' } as Partial<TrashReport>),
+];
+const jStats = computeJurisdictionStats(jReports);
+console.assert(jStats.length === 1, `expected 1 jurisdiction, got ${jStats.length}`);
+console.assert(jStats[0].total === 2, `flagged report must not count toward total, got ${jStats[0].total}`);
+console.assert(jStats[0].resolutionRate === 50, `expected 50% resolution rate, got ${jStats[0].resolutionRate}`);
+console.assert(jStats[0].avgResolutionHours === 24, `expected 24h avg resolution, got ${jStats[0].avgResolutionHours}`);
+
+// computeStatusBreakdown: always 4 statuses, fixed order, correct counts.
+const sReports: TrashReport[] = [
+    report({ id: 's1', status: 'pending' }),
+    report({ id: 's2', status: 'pending' }),
+    report({ id: 's3', status: 'resolved' }),
+];
+const sBreakdown = computeStatusBreakdown(sReports);
+console.assert(sBreakdown.length === 4, `expected 4 statuses always, got ${sBreakdown.length}`);
+console.assert(
+    sBreakdown.map((s) => s.status).join(',') === 'pending,unresolved,flagged,resolved',
+    `expected fixed order pending,unresolved,flagged,resolved, got ${sBreakdown.map((s) => s.status).join(',')}`
+);
+console.assert(sBreakdown[0].count === 2, `expected 2 pending, got ${sBreakdown[0].count}`);
+console.assert(sBreakdown[1].count === 0, `expected 0 unresolved, got ${sBreakdown[1].count}`);
 
 console.log('analyticsStats.selfcheck.ts: all assertions passed');

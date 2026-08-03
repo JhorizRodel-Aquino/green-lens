@@ -9,11 +9,12 @@ import { TrashMap } from '@/components/map/TrashMap';
 import StatCard from '@/components/admin/StatCard';
 import DateRangeFilter from '@/components/admin/DateRangeFilter';
 import {
-    formatAvgResolutionTime, isWithinDatePreset, jurisdictionLabel, getPeriodBounds, getPreviousPeriodBounds,
+    formatAvgResolutionTime, isWithinDatePreset, getPeriodBounds, getPreviousPeriodBounds,
     reportsInPeriod, pctChange, avgResolutionHours, satisfactionRate, type DatePreset,
 } from '@/utils/reportStats';
 import LguFilter, { useLguFilter } from '@/components/admin/LguFilter';
 import TopTenModal from '@/components/admin/TopTenModal';
+import { computeJurisdictionStats } from '@/utils/analyticsStats';
 
 const DISTRICT_TRENDS = [
     'District 3 resolution speed improved by 12% this week. This correlates with the new dispatch protocol.',
@@ -48,7 +49,7 @@ export default function DashboardPage() {
     const [datePreset, setDatePreset] = useState<DatePreset>('month');
     const [customFrom, setCustomFrom] = useState('');
     const [customTo, setCustomTo] = useState('');
-    const { selectedLgu, setSelectedLgu, lguOptions, filteredReports: lguFilteredReports } = useLguFilter(reports);
+    const { selectedLgu, setSelectedLgu, lguOptions, filteredReports: lguFilteredReports } = useLguFilter(reports, false);
     const [openModal, setOpenModal] = useState<'reports' | 'bottlenecks' | 'champions' | null>(null);
 
     const filteredReports = useMemo(
@@ -109,34 +110,7 @@ export default function DashboardPage() {
     const bottlenecks = bottlenecksAll.slice(0, 3);
 
     // Per-jurisdiction stats, only meaningful for SUPER_ADMIN (sees all LGUs)
-    const jurisdictionStats = useMemo(() => {
-        type Bucket = { total: number; resolved: number; resolutionHoursSum: number; resolutionCount: number };
-        const buckets = new Map<string, Bucket>();
-        for (const r of filteredReports) {
-            if (r.status === 'flagged') continue; // flagged reports don't count toward a jurisdiction's grade
-            const key = jurisdictionLabel(r);
-            const b = buckets.get(key) ?? { total: 0, resolved: 0, resolutionHoursSum: 0, resolutionCount: 0 };
-            b.total += 1;
-            if (r.status === 'resolved') {
-                b.resolved += 1;
-                if (r.resolvedAt) {
-                    const hours = (new Date(r.resolvedAt).getTime() - new Date(r.createdAt).getTime()) / 3_600_000;
-                    if (hours >= 0) {
-                        b.resolutionHoursSum += hours;
-                        b.resolutionCount += 1;
-                    }
-                }
-            }
-            buckets.set(key, b);
-        }
-        return [...buckets.entries()].map(([name, b]) => ({
-            name,
-            total: b.total,
-            resolved: b.resolved,
-            resolutionRate: b.total > 0 ? (b.resolved / b.total) * 100 : 0,
-            avgResolutionHours: b.resolutionCount > 0 ? b.resolutionHoursSum / b.resolutionCount : null,
-        }));
-    }, [filteredReports]);
+    const jurisdictionStats = useMemo(() => computeJurisdictionStats(filteredReports), [filteredReports]);
 
     const performanceGrades = useMemo(
         () => [...jurisdictionStats]
