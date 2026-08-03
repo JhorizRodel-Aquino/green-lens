@@ -1,17 +1,15 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
-import { AlertTriangle, CheckCircle2, Clock3, ShieldCheck } from 'lucide-react';
 import { useReports } from '@/context/ReportsContext';
 import { useAuth } from '@/context/AuthContext';
 import ReportDetailPanel from '@/components/map/ReportDetailPanel';
-import StatCard from '@/components/admin/StatCard';
 import ReportCard from '@/components/admin/ReportCard';
 import RouteModal from '@/components/admin/RouteModal';
 import DateRangeFilter from '@/components/admin/DateRangeFilter';
 import LguFilter, { useLguFilter } from '@/components/admin/LguFilter';
 import { useJurisdictionCoverage } from '@/components/admin/useJurisdictionCoverage';
 import { cn } from '@/utils/cn';
-import { formatAvgResolutionTime, isWithinDatePreset, startOfToday, type DatePreset } from '@/utils/reportStats';
+import { isWithinDatePreset, type DatePreset } from '@/utils/reportStats';
 
 type Tab = 'all' | 'pending' | 'unresolved' | 'flagged' | 'resolved' | 'reopened' | 'unassigned' | 'active';
 
@@ -72,18 +70,6 @@ export default function ReportsPage() {
         setSelectedIds(new Set());
     }, [activeTab, datePreset, customFrom, customTo, selectedLgu]);
 
-    const stats = useMemo(() => {
-        const today = startOfToday();
-        const highSeverityOpen = lguFilteredReports.filter((r) => r.severity === 'HIGH' && r.status !== 'resolved').length;
-        const resolvedToday = lguFilteredReports.filter((r) => r.status === 'resolved' && r.resolvedAt && new Date(r.resolvedAt) >= today).length;
-        const avgTime = formatAvgResolutionTime(lguFilteredReports);
-        const lguResponseRate = lguFilteredReports.length === 0
-            ? '—'
-            : `${Math.round((lguFilteredReports.filter((r) => r.lguActionLogged).length / lguFilteredReports.length) * 100)}%`;
-
-        return { highSeverityOpen, resolvedToday, avgTime, lguResponseRate };
-    }, [lguFilteredReports]);
-
     const filteredReports = useMemo(() => {
         return lguFilteredReports.filter((r) => {
             if (activeTab === 'unassigned') return r.jurisdictionStatus === 'UNASSIGNED';
@@ -101,13 +87,6 @@ export default function ReportsPage() {
 
             {error && <p className="text-sm text-red-600">{error}</p>}
             {loading && reports.length === 0 && <p className="text-sm text-dark-light">Loading reports...</p>}
-
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-3">
-                <StatCard label="High Severity" value={String(stats.highSeverityOpen)} icon={AlertTriangle} tone="danger" />
-                <StatCard label="Resolved Today" value={String(stats.resolvedToday)} icon={CheckCircle2} tone="success" />
-                <StatCard label="Avg. Time" value={stats.avgTime} icon={Clock3} tone="accent" />
-                <StatCard label="LGU Response" value={stats.lguResponseRate} icon={ShieldCheck} tone="default" />
-            </div>
 
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
                 <div className="flex gap-1 rounded-lg border border-light-dark bg-white p-1 w-full md:w-fit overflow-x-auto">
