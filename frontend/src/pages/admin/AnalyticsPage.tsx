@@ -7,7 +7,7 @@ import StatCard from '@/components/admin/StatCard';
 import DateRangeFilter from '@/components/admin/DateRangeFilter';
 import LguFilter, { useLguFilter } from '@/components/admin/LguFilter';
 import { formatAvgResolutionTime, isWithinDatePreset, type DatePreset } from '@/utils/reportStats';
-import { bucketReportsOverTime, computeJurisdictionStats } from '@/utils/analyticsStats';
+import { bucketReportsOverTime, computeJurisdictionStats, computeStatusBreakdown } from '@/utils/analyticsStats';
 
 export default function AnalyticsPage() {
     const { reports } = useReports();
@@ -43,6 +43,15 @@ export default function AnalyticsPage() {
         [filteredReports]
     );
     const showJurisdictionChart = user?.role !== 'LGU_AGENT';
+
+    const statusBreakdown = useMemo(() => computeStatusBreakdown(filteredReports), [filteredReports]);
+
+    const STATUS_COLORS: Record<string, string> = {
+        pending: '#0ea5e9',
+        unresolved: '#8b5cf6',
+        flagged: '#f59e0b',
+        resolved: '#16a34a',
+    };
 
     return (
         <div className="p-4 md:p-6 space-y-6">
@@ -111,6 +120,25 @@ export default function AnalyticsPage() {
                     )}
                 </div>
             )}
+
+            <div className="rounded-xl border border-light-dark bg-white p-4">
+                <h3 className="text-sm font-semibold text-dark mb-4">Status Breakdown</h3>
+                {statusBreakdown.every((s) => s.count === 0) ? (
+                    <p className="text-sm text-dark-light py-10 text-center">No data for this period.</p>
+                ) : (
+                    <ResponsiveContainer width="100%" height={280}>
+                        <BarChart data={statusBreakdown}>
+                            <CartesianGrid strokeDasharray="3 3" stroke="#e2e8f0" vertical={false} />
+                            <XAxis dataKey="label" tick={{ fontSize: 12, fill: '#64748b' }} axisLine={{ stroke: '#e2e8f0' }} tickLine={false} />
+                            <YAxis allowDecimals={false} tick={{ fontSize: 12, fill: '#64748b' }} axisLine={false} tickLine={false} />
+                            <Tooltip contentStyle={{ borderRadius: 8, border: '1px solid #e2e8f0', fontSize: 13 }} />
+                            <Bar dataKey="count" name="Reports" radius={[4, 4, 0, 0]} label={{ position: 'top', fontSize: 12, fill: '#0f172a' }}>
+                                {statusBreakdown.map((s) => <Cell key={s.status} fill={STATUS_COLORS[s.status]} />)}
+                            </Bar>
+                        </BarChart>
+                    </ResponsiveContainer>
+                )}
+            </div>
         </div>
     );
 }
