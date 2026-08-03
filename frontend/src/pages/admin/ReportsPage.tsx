@@ -6,6 +6,7 @@ import { useAuth } from '@/context/AuthContext';
 import ReportDetailPanel from '@/components/map/ReportDetailPanel';
 import StatCard from '@/components/admin/StatCard';
 import ReportCard from '@/components/admin/ReportCard';
+import RouteModal from '@/components/admin/RouteModal';
 import DateRangeFilter from '@/components/admin/DateRangeFilter';
 import LguFilter, { useLguFilter } from '@/components/admin/LguFilter';
 import { useJurisdictionCoverage } from '@/components/admin/useJurisdictionCoverage';
@@ -52,6 +53,24 @@ export default function ReportsPage() {
     const [customFrom, setCustomFrom] = useState('');
     const [customTo, setCustomTo] = useState('');
     const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
+    const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+    const [showRouteModal, setShowRouteModal] = useState(false);
+
+    const toggleSelected = (id: string) => {
+        setSelectedIds((prev) => {
+            const next = new Set(prev);
+            if (next.has(id)) {
+                next.delete(id);
+            } else if (next.size < 10) {
+                next.add(id);
+            }
+            return next;
+        });
+    };
+
+    useEffect(() => {
+        setSelectedIds(new Set());
+    }, [activeTab, datePreset, customFrom, customTo, selectedLgu]);
 
     const stats = useMemo(() => {
         const today = startOfToday();
@@ -128,6 +147,8 @@ export default function ReportsPage() {
                         report={report}
                         onClick={() => setSelectedReportId(report.id)}
                         orphaned={isSuperAdmin && isOrphaned(report)}
+                        selected={selectedIds.has(report.id)}
+                        onToggleSelect={() => toggleSelected(report.id)}
                     />
                 ))}
 
@@ -137,8 +158,38 @@ export default function ReportsPage() {
             </div>
         </div>
 
+        {selectedIds.size > 0 && (
+            <div className="fixed bottom-0 left-0 right-0 z-[1500] flex justify-center px-4 pb-4">
+                <div className="flex items-center gap-3 rounded-xl border border-light-dark bg-white px-4 py-3 shadow-xl">
+                    <span className="text-sm font-medium text-dark">{selectedIds.size} selected</span>
+                    <button
+                        type="button"
+                        onClick={() => setSelectedIds(new Set())}
+                        className="text-sm font-medium text-dark-light hover:text-dark"
+                    >
+                        Clear
+                    </button>
+                    <button
+                        type="button"
+                        disabled={selectedIds.size < 2}
+                        onClick={() => setShowRouteModal(true)}
+                        className="rounded-lg bg-primary px-3 py-1.5 text-sm font-semibold text-white disabled:opacity-40 disabled:cursor-not-allowed"
+                    >
+                        Make Route
+                    </button>
+                </div>
+            </div>
+        )}
+
         {selectedReportId && (
             <ReportDetailPanel reportId={selectedReportId} onClose={() => setSelectedReportId(null)} />
+        )}
+
+        {showRouteModal && selectedIds.size >= 2 && (
+            <RouteModal
+                reports={reports.filter((r) => selectedIds.has(r.id))}
+                onClose={() => setShowRouteModal(false)}
+            />
         )}
         </>
     );
