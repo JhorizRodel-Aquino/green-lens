@@ -13,9 +13,9 @@ import { useJurisdictionCoverage } from '@/components/admin/useJurisdictionCover
 import { cn } from '@/utils/cn';
 import { formatAvgResolutionTime, isWithinDatePreset, startOfToday, type DatePreset } from '@/utils/reportStats';
 
-type Tab = 'all' | 'pending' | 'unresolved' | 'flagged' | 'resolved' | 'reopened' | 'unassigned' | 'orphaned' | 'active';
+type Tab = 'all' | 'pending' | 'unresolved' | 'flagged' | 'resolved' | 'reopened' | 'unassigned' | 'active';
 
-const VALID_TABS: Tab[] = ['all', 'pending', 'unresolved', 'flagged', 'resolved', 'reopened', 'unassigned', 'orphaned', 'active'];
+const VALID_TABS: Tab[] = ['all', 'pending', 'unresolved', 'flagged', 'resolved', 'reopened', 'unassigned', 'active'];
 
 const TABS: { key: Tab; label: string }[] = [
     { key: 'all', label: 'All' },
@@ -31,9 +31,9 @@ export default function ReportsPage() {
     const { user } = useAuth();
     const isSuperAdmin = user?.role === 'SUPER_ADMIN';
     const tabs = isSuperAdmin
-        ? [...TABS, { key: 'unassigned' as const, label: 'Unassigned' }, { key: 'orphaned' as const, label: 'No LGU Coverage' }]
+        ? [...TABS, { key: 'unassigned' as const, label: 'Unassigned' }]
         : TABS;
-    const { selectedLgu, setSelectedLgu, lguOptions, filteredReports: lguFilteredReports } = useLguFilter(reports);
+    const { selectedLgu, setSelectedLgu, lguOptions, filteredReports: lguFilteredReports } = useLguFilter(reports, isSuperAdmin);
     const { isOrphaned } = useJurisdictionCoverage();
     const [searchParams] = useSearchParams();
     const tabFromUrl = searchParams.get('tab');
@@ -87,13 +87,12 @@ export default function ReportsPage() {
     const filteredReports = useMemo(() => {
         return lguFilteredReports.filter((r) => {
             if (activeTab === 'unassigned') return r.jurisdictionStatus === 'UNASSIGNED';
-            if (activeTab === 'orphaned') return isOrphaned(r);
             if (activeTab === 'reopened') return r.wasReopened;
             if (activeTab === 'active') return r.status !== 'resolved';
             if (activeTab !== 'all' && r.status !== activeTab) return false;
             return isWithinDatePreset(r.createdAt, datePreset, customFrom, customTo);
         });
-    }, [lguFilteredReports, activeTab, datePreset, customFrom, customTo, isOrphaned]);
+    }, [lguFilteredReports, activeTab, datePreset, customFrom, customTo]);
 
     return (
         <>
