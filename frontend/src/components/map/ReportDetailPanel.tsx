@@ -253,7 +253,7 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
             )}
 
             {showDirections && (
-                <DirectionsModal lat={report.lat} lng={report.lng} onClose={() => setShowDirections(false)} />
+                <DirectionsModal lat={report.lat} lng={report.lng} locationLabel={report.locationLabel} onClose={() => setShowDirections(false)} />
             )}
         </div>
     );

@@ -5,10 +5,11 @@ import { getUserLocation, getRelaxedLocation } from '@/utils/location';
 type DirectionsModalProps = {
     lat: number;
     lng: number;
+    locationLabel?: string;
     onClose: () => void;
 };
 
-export default function DirectionsModal({ lat, lng, onClose }: DirectionsModalProps) {
+export default function DirectionsModal({ lat, lng, locationLabel, onClose }: DirectionsModalProps) {
     const [origin, setOrigin] = useState<{ lat: number; lng: number } | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
 
@@ -54,7 +55,20 @@ export default function DirectionsModal({ lat, lng, onClose }: DirectionsModalPr
                         Getting your location...
                     </div>
                 ) : (
-                    <div className="p-4">
+                    <div className="p-4 space-y-4">
+                        <ol className="space-y-2">
+                            <li className="flex items-center gap-2 text-sm text-dark-light">
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-light text-[11px] font-semibold">•</span>
+                                {locationError ? 'Location unavailable' : 'Your location'}
+                            </li>
+                            <li className="flex items-center gap-2 text-sm text-dark">
+                                <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary-light/20 text-primary-dark text-[11px] font-semibold">
+                                    1
+                                </span>
+                                <span className="truncate">{locationLabel ?? `${lat.toFixed(5)}, ${lng.toFixed(5)}`}</span>
+                            </li>
+                        </ol>
+
                         <a
                             href={externalUrl}
                             target="_blank"
