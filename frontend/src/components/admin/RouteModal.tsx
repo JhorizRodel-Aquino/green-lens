@@ -30,6 +30,13 @@ function coordsParam(p: LatLng): string {
     return `${p.lat},${p.lng}`;
 }
 
+// The legacy embed endpoint treats a bare "lat,lng" as an address search,
+// which can resolve to a nearby business instead of the literal point.
+// "loc:" forces it to route to that exact coordinate.
+function embedCoordsParam(p: LatLng): string {
+    return `loc:${p.lat},${p.lng}`;
+}
+
 export default function RouteModal({ reports, onClose }: RouteModalProps) {
     const [origin, setOrigin] = useState<LatLng | null>(null);
     const [locationError, setLocationError] = useState<string | null>(null);
@@ -62,7 +69,7 @@ export default function RouteModal({ reports, onClose }: RouteModalProps) {
         : undefined;
 
     const embedSrc = origin && destination
-        ? `https://maps.google.com/maps?saddr=${coordsParam(origin)}&daddr=${stops.map(coordsParam).join('+to+')}&output=embed`
+        ? `https://maps.google.com/maps?saddr=${embedCoordsParam(origin)}&daddr=${stops.map(embedCoordsParam).join('+to+')}&output=embed`
         : undefined;
 
     return (
