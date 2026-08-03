@@ -140,7 +140,7 @@ export default function ReportsPage() {
                 </div>
             </div>
 
-            <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3">
+            <div className={cn('grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3', selectedIds.size > 0 && 'pb-20')}>
                 {filteredReports.map((report) => (
                     <ReportCard
                         key={report.id}
@@ -149,6 +149,7 @@ export default function ReportsPage() {
                         orphaned={isSuperAdmin && isOrphaned(report)}
                         selected={selectedIds.has(report.id)}
                         onToggleSelect={() => toggleSelected(report.id)}
+                        selectionDisabled={selectedIds.size >= 10}
                     />
                 ))}
 

@@ -8,6 +8,25 @@ export interface LocationResult {
 }
 
 /**
+ * Fallback when the strict high-accuracy fix times out — accepts a cached (up to 5min old) or
+ * network/Wi-Fi-based position instead of demanding a fresh GPS lock, same as how Map View's
+ * continuous watchPosition() resolves even where a one-shot high-accuracy request won't.
+ */
+export function getRelaxedLocation(): Promise<{ lat: number; lng: number }> {
+  return new Promise((resolve, reject) => {
+    if (!navigator.geolocation) {
+      reject(new Error('Geolocation is not supported by your browser'));
+      return;
+    }
+    navigator.geolocation.getCurrentPosition(
+      (position) => resolve({ lat: position.coords.latitude, lng: position.coords.longitude }),
+      (err) => reject(err instanceof Error ? err : new Error('Could not get your location')),
+      { enableHighAccuracy: false, timeout: 10000, maximumAge: 300000 }
+    );
+  });
+}
+
+/**
  * Get user location using GPS only
  * Throws error if GPS is unavailable or user denies permission
  */
