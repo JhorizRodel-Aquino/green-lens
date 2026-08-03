@@ -110,14 +110,14 @@ export default function ReportsPage() {
             </div>
 
             <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-                <div className="flex gap-1 rounded-lg border border-light-dark bg-white p-1 w-fit">
+                <div className="flex gap-1 rounded-lg border border-light-dark bg-white p-1 w-full md:w-fit overflow-x-auto">
                     {tabs.map((tab) => (
                         <button
                             key={tab.key}
                             type="button"
                             onClick={() => { setActiveTab(tab.key); refresh(); }}
                             className={cn(
-                                'rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
+                                'shrink-0 rounded-md px-3 py-1.5 text-sm font-medium transition-colors',
                                 activeTab === tab.key ? 'bg-primary text-white' : 'text-dark-light hover:bg-light'
                             )}
                         >
