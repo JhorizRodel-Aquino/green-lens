@@ -43,6 +43,64 @@ Re-verifies the stored id is still a real, active account — use on app load in
 
 ---
 
+## Check for duplicates near you
+
+```
+GET /api/reports/nearby?lat=14.5995&lng=120.9842&radiusMeters=20
+```
+
+Public — no auth needed. Call this right after getting the device's GPS location, before showing the "Create Report" form, so the citizen can see if someone already reported the same thing.
+
+| Query param | Type | Required | Notes |
+|---|---|---|---|
+| `lat` | number | yes | |
+| `lng` | number | yes | |
+| `radiusMeters` | number | no (default `20`, max `1000`) | |
+
+Only `PENDING`/`REPORTED` reports are returned — resolved and flagged reports don't count as "still there." Response is an array, closest first:
+
+```json
+[
+  {
+    "id": "uuid",
+    "lat": 14.59951,
+    "lng": 120.98422,
+    "details": "Garbage overflow at a Manila street corner.",
+    "locationLabel": "...",
+    "distanceMeters": 4,
+    "images": [{ "url": "https://...", "kind": "USER_UPLOAD" }],
+    "statusValue": "PENDING",
+    "status": { "value": "PENDING", "validity": "VALID" },
+    "_count": { "confirmations": 2 },
+    "createdAt": "..."
+  }
+]
+```
+
+---
+
+## Confirm a report ("I saw this too")
+
+```
+POST /api/reports/:id/confirm
+x-user-id: <your user id>   (required)
+```
+
+Anyone logged in can confirm any report — not reporter-only, that's the point (independent corroboration that it's real/still there). One confirmation per (report, account); confirming twice is rejected.
+
+`201 Created`, full report object with `_count.confirmations` updated. `409` if you already confirmed it. `404` if the report doesn't exist.
+
+To undo:
+
+```
+DELETE /api/reports/:id/confirm
+x-user-id: <your user id>   (required)
+```
+
+`200 OK`, full report object with `_count.confirmations` updated (a no-op, still `200`, if you hadn't confirmed it).
+
+---
+
 ## Submit a report
 
 ```

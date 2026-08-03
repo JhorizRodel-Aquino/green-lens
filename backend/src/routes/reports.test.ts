@@ -420,3 +420,65 @@ test('GET /api/reports auto-transitions stale PENDING reports to REPORTED', asyn
         await prisma.user.delete({ where: { id: agent.id } });
     }
 });
+
+test('GET /api/reports/nearby only returns unresolved reports within the radius', async () => {
+    const near = await prisma.report.create({
+        data: { lat: 14.32000, lng: 120.77000, details: 'near, pending', locationLabel: 'Somewhere, Philippines' },
+    });
+    const resolvedNear = await prisma.report.create({
+        data: {
+            lat: 14.32001, lng: 120.77001, details: 'near but resolved', locationLabel: 'Somewhere, Philippines',
+            statusValue: 'RESOLVED', resolvedAt: new Date(),
+        },
+    });
+    const far = await prisma.report.create({
+        data: { lat: 14.40000, lng: 120.90000, details: 'far away', locationLabel: 'Somewhere Else, Philippines' },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports/nearby?lat=14.32000&lng=120.77000&radiusMeters=50`);
+            assert.equal(res.status, 200);
+            const body = (await res.json()) as { id: string }[];
+            const ids = body.map((r) => r.id);
+            assert.ok(ids.includes(near.id));
+            assert.ok(!ids.includes(resolvedNear.id));
+            assert.ok(!ids.includes(far.id));
+        });
+    } finally {
+        await prisma.report.delete({ where: { id: near.id } });
+        await prisma.report.delete({ where: { id: resolvedNear.id } });
+        await prisma.report.delete({ where: { id: far.id } });
+    }
+});
+
+test('POST /api/reports/:id/confirm records one confirmation per user, rejects duplicates', async () => {
+    const citizen = await prisma.user.create({
+        data: { name: 'Confirmer', email: `confirmer-${Date.now()}@example.com`, passwordHash: 'x', role: 'CITIZEN', status: 'ACTIVE' },
+    });
+    const report = await prisma.report.create({
+        data: { lat: 14.32, lng: 120.77, details: 'saw this too', locationLabel: 'Somewhere, Philippines' },
+    });
+
+    try {
+        await withServer(async (base) => {
+            const res1 = await fetch(`${base}/api/reports/${report.id}/confirm`, {
+                method: 'POST',
+                headers: { 'x-user-id': citizen.id },
+            });
+            assert.equal(res1.status, 201);
+            const body1 = (await res1.json()) as { _count: { confirmations: number } };
+            assert.equal(body1._count.confirmations, 1);
+
+            const res2 = await fetch(`${base}/api/reports/${report.id}/confirm`, {
+                method: 'POST',
+                headers: { 'x-user-id': citizen.id },
+            });
+            assert.equal(res2.status, 409);
+        });
+    } finally {
+        await prisma.reportConfirmation.deleteMany({ where: { reportId: report.id } });
+        await prisma.report.delete({ where: { id: report.id } });
+        await prisma.user.delete({ where: { id: citizen.id } });
+    }
+});
