@@ -1,26 +1,17 @@
-import { TrashMap, type MyLocation, type TrashReport } from "@/components/map/TrashMap";
+import { TrashMap, type MyLocation } from "@/components/map/TrashMap";
 import ReportDetailPanel from "@/components/map/ReportDetailPanel";
+import LguFilter, { useLguFilter } from "@/components/admin/LguFilter";
+import { useReports } from "@/context/ReportsContext";
 import { useEffect, useState } from "react";
 import { watchLocation } from "@/utils/location";
 
-const SAMPLE_REPORTS: TrashReport[] = [
-    {
-        id: '1', lat: 14.4550, lng: 120.9520, severity: 'HIGH', details: 'Illegal dump site behind store', locationLabel: 'Roxas Blvd, Pasay City',
-        imageUrls: [
-            'https://images.unsplash.com/photo-1621451537084-482c73073a0f?w=400',
-            'https://images.unsplash.com/photo-1611284446314-60a58ac0deb9?w=400',
-        ],
-    },
-    { id: '2', lat: 14.4552, lng: 120.9523, severity: 'HIGH', details: 'Heavy pile of garbage bags', locationLabel: 'F.B. Harrison St, Pasay City' },
-    { id: '3', lat: 14.4650, lng: 120.9450, severity: 'LOW', details: 'Single plastic cup on curb', locationLabel: 'EDSA cor. Taft Ave, Pasay City' },
-];
-
-
-
 export default function MapViewPage() {
+    const { reports } = useReports();
+    const unresolvedReports = reports.filter((r) => r.status === 'unresolved');
+    const { selectedLgu, setSelectedLgu, lguOptions, filteredReports } = useLguFilter(unresolvedReports);
     const [userLoc, setUserLoc] = useState<MyLocation>({ lat: null, lng: null });
     const [userLocError, setuserLocError] = useState<string | null>(null);
-    const [selectedReport, setSelectedReport] = useState<TrashReport | null>(null);
+    const [selectedReportId, setSelectedReportId] = useState<string | null>(null);
 
     useEffect(() => {
         // Start watching location
@@ -34,24 +25,29 @@ export default function MapViewPage() {
             setuserLocError(err.message);
             }
         );
-    
+
         // Stop watching when component unmounts
         return () => unwatch();
         }, []);
 
     return (
-      <div className="h-[calc(100dvh-3.5rem)] md:h-dvh">
+      <div className="h-[calc(100dvh-3.5rem)] md:h-dvh relative">
+        {lguOptions.length > 1 && (
+          <div className="absolute top-16 right-4 z-[1000]">
+            <LguFilter value={selectedLgu} onChange={setSelectedLgu} options={lguOptions} />
+          </div>
+        )}
         <TrashMap
-          reports={SAMPLE_REPORTS}
+          reports={filteredReports}
           showLogo={false}
           myLocation={userLoc}
-          onMarkerClick={setSelectedReport}
-          isDetailPanelOpen={!!selectedReport}
-          selectedReportId={selectedReport?.id}
+          onMarkerClick={(report) => setSelectedReportId(report.id)}
+          isDetailPanelOpen={!!selectedReportId}
+          selectedReportId={selectedReportId ?? undefined}
         />
 
-        {selectedReport && (
-          <ReportDetailPanel report={selectedReport} onClose={() => setSelectedReport(null)} />
+        {selectedReportId && (
+          <ReportDetailPanel reportId={selectedReportId} onClose={() => setSelectedReportId(null)} />
         )}
       </div>
     );

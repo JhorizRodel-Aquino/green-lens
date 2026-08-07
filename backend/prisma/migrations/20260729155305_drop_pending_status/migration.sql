@@ -1,0 +1,9 @@
+BEGIN;
+CREATE TYPE "UserStatus_new" AS ENUM ('ACTIVE', 'BLOCKED');
+ALTER TABLE "User" ALTER COLUMN "status" DROP DEFAULT;
+ALTER TABLE "User" ALTER COLUMN "status" TYPE "UserStatus_new" USING ("status"::text::"UserStatus_new");
+ALTER TYPE "UserStatus" RENAME TO "UserStatus_old";
+ALTER TYPE "UserStatus_new" RENAME TO "UserStatus";
+DROP TYPE "UserStatus_old";
+ALTER TABLE "User" ALTER COLUMN "status" SET DEFAULT 'ACTIVE';
+COMMIT;

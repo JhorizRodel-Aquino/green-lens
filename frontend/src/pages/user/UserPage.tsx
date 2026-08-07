@@ -8,52 +8,17 @@ import { Camera, LayoutList } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { STATUS_CONFIG, type ReportStatus } from '@/config/status';
 
-// Initial Sample Data
-const initialReports: TrashReport[] = [
-    {
-        id: '1',
-        lat: 14.4550,
-        lng: 120.9520,
-        severity: 'HIGH',
-        details: 'Illegal dump site behind store',
-        status: 'REPORTED'
-    },
-    {
-        id: '2',
-        lat: 14.4552,
-        lng: 120.9523,
-        severity: 'HIGH',
-        details: 'Heavy pile of garbage bags',
-        status: 'RESOLVED'
-    },
-    {
-        id: '3',
-        lat: 14.4650,
-        lng: 120.9450,
-        severity: 'LOW',
-        details: 'Single plastic cup on curb',
-        status: 'MINOR_LITTER'
-    },
-];
-
-const StatusBadge = ({ status }: { status?: ReportStatus }) => {
-    if (!status) {
-        return (
-            <span className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">
-                No Status
-            </span>
-        );
-    }
-    const config = STATUS_CONFIG[status];
-    return (
-        <span className={cn("text-xs px-2 py-0.5 rounded-full font-medium", config.color)}>
-            {config.icon} {config.label}
-        </span>
-    );
-};
-
 export default function UserPage() {
-    const [openDrawer, setOpenDrawer] = useState(true)
+        // Initial Sample Data
+    const initialReports: TrashReport[] = [
+        { id: '1', lat: 14.4550, lng: 120.9520, severity: 'HIGH', details: 'Illegal dump site behind store', status: 'unresolved', createdAt: new Date().toISOString() },
+        { id: '2', lat: 14.4552, lng: 120.9523, severity: 'HIGH', details: 'Heavy pile of garbage bags', status: 'unresolved', createdAt: new Date().toISOString() },
+        { id: '3', lat: 14.4650, lng: 120.9450, severity: 'LOW', details: 'Single plastic cup on curb', status: 'unresolved', createdAt: new Date().toISOString() },
+    ];
+
+    
+
+    const [openDrawer, setDrawerModal] = useState(false)
     const [showCamera, setShowCamera] = useState(false);
 
     const [userLoc, setUserLoc] = useState<MyLocation>({ lat: null, lng: null });

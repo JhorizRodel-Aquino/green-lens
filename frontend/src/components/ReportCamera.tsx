@@ -3,13 +3,12 @@ import { X, Repeat, CameraOff } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { CameraComponent, type CameraComponentHandles } from 'react-camera-component';
 
-export default function ReportCamera({ 
-  onClose,
-  onCapture
-}: { 
-  onClose: () => void,
-  onCapture: (imageData: string) => void;
-}) {
+type ReportCameraProps = {
+  onClose: () => void;
+  onCapture?: (imageUrl: string) => void;
+};
+
+export default function ReportCamera({ onClose, onCapture }: ReportCameraProps) {
   const cameraRef = useRef<CameraComponentHandles>(null);
   const [error, setError] = useState<string | null>(null);
 

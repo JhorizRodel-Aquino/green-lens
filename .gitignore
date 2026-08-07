@@ -1,0 +1,7 @@
+# AI agent / editor tool state
+.claude
+.agents
+.windsurf
+.cursor
+.codeium
+.aider*
