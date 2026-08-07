@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { watchLocation } from "@/utils/location";
 import { Camera, LayoutList } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { STATUS_CONFIG, type ReportStatus } from '@/config/status';
+// import { STATUS_CONFIG, type ReportStatus } from '@/config/status';
 
 export default function UserPage() {
         // Initial Sample Data
@@ -18,7 +18,7 @@ export default function UserPage() {
 
     
 
-    const [openDrawer, setDrawerModal] = useState(false)
+    const [openDrawer, setOpenDrawer] = useState(false)
     const [showCamera, setShowCamera] = useState(false);
 
     const [userLoc, setUserLoc] = useState<MyLocation>({ lat: null, lng: null });
@@ -75,7 +75,7 @@ export default function UserPage() {
 
     return (
         <UserLayout>
-            <TrashMap reports={initialReports} myLocation={userLoc} showLogo={true} />
+            <TrashMap reports={initialReports} myLocation={userLoc} showLogo={true} pinOnMyLocation={true} />
 
             {/* DRAWER WRAPPER - THIS WAS MISSING */}
             <div
@@ -265,7 +265,7 @@ export default function UserPage() {
                                                 </div>
                                                 
                                                 {/* Status Badge - from your config */}
-                                                <StatusBadge status={report.status} />
+                                                {/* <StatusBadge status={report.status} /> */}
                                             </div>
                                         </div>
                                     ))

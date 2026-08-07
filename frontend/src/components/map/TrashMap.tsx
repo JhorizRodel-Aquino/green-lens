@@ -12,7 +12,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import Logo from '../Logo';
 import { SEVERITY_COLORS } from '@/config/severity';
 import { cn } from '@/utils/cn';
-import { type ReportStatus } from '@/config/status';
+// import { type ReportStatus } from '@/config/status';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -221,6 +221,7 @@ type TrashMapProps = {
   onMarkerClick?: (report: TrashReport) => void; // NEW: Marker click handler
   isDetailPanelOpen?: boolean; // Shifts the Pins/Heatmap switch clear of a caller-rendered detail panel
   selectedReportId?: string; // Highlights this report's marker as the active selection
+  pinOnMyLocation?: boolean; // NEW: Whether to show a pin for the user's location
 };
 
 export const TrashMap = ({
@@ -231,6 +232,7 @@ export const TrashMap = ({
   onMarkerClick, // Optional marker click handler
   isDetailPanelOpen = false,
   selectedReportId,
+  pinOnMyLocation = false,
 }: TrashMapProps) => {
   const [showPins, setShowPins] = useState<boolean>(true);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
@@ -302,7 +304,7 @@ export const TrashMap = ({
 
         {/* Default to fitting every report; only fall back to the user's location when there's nothing to fit */}
         <FitAllReports reports={reports} />
-        {reports.length === 0 && <RecenterOnMyLocation myLocation={myLocation} />}
+        {reports.length === 0 || pinOnMyLocation && <RecenterOnMyLocation myLocation={myLocation} />}
 
         {/* Heatmap Component */}
         {showHeatmap && <HeatmapLayer points={heatPoints} />}
