@@ -12,6 +12,7 @@ import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import Logo from '../Logo';
 import { SEVERITY_COLORS } from '@/config/severity';
 import { cn } from '@/utils/cn';
+import { type ReportStatus } from '@/config/status';
 
 delete (L.Icon.Default.prototype as any)._getIconUrl;
 L.Icon.Default.mergeOptions({
@@ -140,6 +141,7 @@ export type TrashReport = {
   details: string;
   locationLabel?: string;
   imageUrls?: string[];
+  status: ReportStatus;
 };
 
 export type MyLocation = { lat: number | null; lng: number | null; };
@@ -196,7 +198,7 @@ export const TrashMap = ({
 
   return (
     <div
-      style={{ position: 'relative', width: '100%', height: '100%' }}
+      style={{ position: 'relative', width: '100%', height: '104%' }}
       className={showLogo ? 'zoom-below-logo' : undefined}
     >
 
