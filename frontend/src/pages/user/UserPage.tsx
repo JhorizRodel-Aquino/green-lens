@@ -4,7 +4,7 @@ import UserLayout from "@/components/layout/UserLayout";
 import ReportCamera from "@/components/ReportCamera";
 import { Button } from "@/components/ui/Button";
 import { watchLocation } from "@/utils/location";
-import { Camera, LayoutList, ArrowLeft, MapPin, ImageOff, Expand } from 'lucide-react'
+import { Camera, LayoutList, ArrowLeft, MapPin, ImageOff, Expand, X } from 'lucide-react'
 import { cn } from '@/utils/cn'
 import { fetchReports, createReportApi } from '@/utils/reportsApi'
 import ImageLightbox from '@/components/map/ImageLightbox'
@@ -127,19 +127,27 @@ export default function UserPage() {
                 pinOnMyLocation={true}
                 onMarkerClick={(report) => openReportInfo(report.id)}
                 selectedReportId={selectedReportId ?? undefined}
+                focusPanelHeightPercent={0.70}
+                focusVerticalBias={0.62}
             />
 
-            {/* DRAWER WRAPPER - THIS WAS MISSING */}
+            {/* DRAWER WRAPPER — bottom sheet on mobile, left side panel from md: up */}
             <div
-                className={`absolute inset-x-0 bottom-0 h-[85dvh] z-[9999] rounded-t-[30px] overflow-hidden bg-light transition-transform duration-300 ease-in-out ${openDrawer ? "translate-y-0" : "translate-y-[calc(100%)]"
-                    }`}
+                className={cn(
+                    "absolute z-[9999] overflow-hidden bg-light transition-transform duration-300 ease-in-out",
+                    "inset-x-0 bottom-0 h-[75dvh] rounded-t-[30px]",
+                    openDrawer ? "translate-y-0" : "translate-y-[calc(100%)]",
+                    "md:inset-y-0 md:left-0 md:right-auto md:bottom-auto md:h-full md:w-[420px] md:max-w-[90vw] md:rounded-t-none md:rounded-r-3xl md:shadow-xl md:translate-y-0",
+                    openDrawer ? "md:translate-x-0" : "md:-translate-x-full"
+                )}
             >
-                {/* Top handle section */}
+                {/* Top handle section — drag pill on mobile, close button on desktop */}
                 <div
-                    className="flex h-[40px] cursor-pointer flex-col items-center justify-center border-b px-4 bg-light-lighter"
+                    className="flex h-[40px] cursor-pointer items-center justify-center md:justify-end border-b px-4 bg-light-lighter"
                     onClick={() => setOpenDrawer(!openDrawer)}
                 >
-                    <div className="h-1.5 w-12 rounded-full bg-gray-300" />
+                    <div className="h-1.5 w-12 rounded-full bg-gray-300 md:hidden" />
+                    <X className="hidden md:block w-5 h-5 text-gray-500" />
                 </div>
 
                 {/* Drawer Body Content */}

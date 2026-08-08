@@ -232,11 +232,57 @@ const FitAllReports = ({ reports }: { reports: TrashReport[] }) => {
   return null;
 };
 
+const FOCUS_ZOOM = 18;
+
+// Zooms in tight on a selected report. When the caller covers the bottom of the screen with
+// a panel/drawer (panelHeightPercent), the pin is nudged up into the remaining visible strip
+// instead of landing dead-center, where the panel would hide it. verticalBias (0-1) picks
+// where in that strip it lands — 0.5 is the strip's exact middle, higher pushes it lower
+// (clear of a header/logo/toolbar pinned to the top of the strip).
+const FocusSelectedReport = ({
+  report,
+  panelHeightPercent,
+  verticalBias = 0.5,
+}: {
+  report?: TrashReport;
+  panelHeightPercent?: number;
+  verticalBias?: number;
+}) => {
+  const map = useMap();
+
+  useEffect(() => {
+    if (!report) return;
+    map.setView([report.lat, report.lng], FOCUS_ZOOM, { animate: true });
+
+    if (panelHeightPercent) {
+      const nudgeIntoView = () => {
+        const size = map.getSize();
+        const visibleHeight = size.y * (1 - panelHeightPercent);
+        const offsetY = size.y / 2 - visibleHeight * verticalBias;
+        map.panBy([0, offsetY], { animate: true });
+      };
+      map.once('moveend', nudgeIntoView);
+      return () => {
+        map.off('moveend', nudgeIntoView);
+      };
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [report?.id]);
+
+  return null;
+};
+
 type TrashMapProps = {
   reports: TrashReport[];
   setReports?: (trashReport: TrashReport[]) => void;
   myLocation?: MyLocation;
   showLogo?: boolean; // NEW: Control logo visibility
+  // Fraction (0-1) of the screen height covered by a caller-rendered bottom panel/drawer —
+  // when set, a focused report's pin is shifted up into the remaining visible strip.
+  focusPanelHeightPercent?: number;
+  // Where within that visible strip the pin lands (0-1, default 0.5 = middle). Push higher
+  // to clear a header/logo/toolbar pinned to the top of the strip.
+  focusVerticalBias?: number;
   onMarkerClick?: (report: TrashReport) => void; // NEW: Marker click handler
   isDetailPanelOpen?: boolean; // Shifts the Pins/Heatmap switch clear of a caller-rendered detail panel
   selectedReportId?: string; // Highlights this report's marker as the active selection
@@ -248,6 +294,8 @@ export const TrashMap = ({
   setReports,
   myLocation,
   showLogo = true, // Default: show logo
+  focusPanelHeightPercent,
+  focusVerticalBias,
   onMarkerClick, // Optional marker click handler
   isDetailPanelOpen = false,
   selectedReportId,
@@ -256,8 +304,19 @@ export const TrashMap = ({
   const [showPins, setShowPins] = useState<boolean>(true);
   const [showHeatmap, setShowHeatmap] = useState<boolean>(false);
 
+  // The map only pins reports that are actually "Reported" (still actionable) — pending/
+  // resolved/flagged reports stay out of the pin/heatmap picture entirely.
+  const pinnedReports = reports.filter((r) => r.status === 'unresolved');
+
+  // If the caller selected a report that isn't normally pinned (e.g. clicked from "My
+  // Reports" while it's still pending or already resolved), show it anyway as a one-off
+  // temporary pin so its location is still visible on the map.
+  const selectedReport = reports.find((r) => r.id === selectedReportId);
+  const temporarySelectedReport =
+    selectedReport && !pinnedReports.some((r) => r.id === selectedReportId) ? selectedReport : undefined;
+
   // Convert report data into Heatmap points [lat, lng, intensity]
-  const heatPoints: HeatPoint[] = reports.map((r) => [
+  const heatPoints: HeatPoint[] = pinnedReports.map((r) => [
     r.lat,
     r.lng,
     HEATMAP_INTENSITY[r.severity],
@@ -321,9 +380,10 @@ export const TrashMap = ({
           url="https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png"
         />
 
-        {/* Default to fitting every report; only fall back to the user's location when there's nothing to fit */}
-        <FitAllReports reports={reports} />
-        {(reports.length === 0 || pinOnMyLocation) && <RecenterOnMyLocation myLocation={myLocation} />}
+        {/* Default to fitting every pinned report; only fall back to the user's location when there's nothing to fit */}
+        <FitAllReports reports={pinnedReports} />
+        {(pinnedReports.length === 0 || pinOnMyLocation) && <RecenterOnMyLocation myLocation={myLocation} />}
+        <FocusSelectedReport report={selectedReport} panelHeightPercent={focusPanelHeightPercent} verticalBias={focusVerticalBias} />
 
         {/* Heatmap Component */}
         {showHeatmap && <HeatmapLayer points={heatPoints} />}
@@ -342,7 +402,7 @@ export const TrashMap = ({
 
         {/* Interactive Pointers / Markers - colored by severity */}
         {showPins &&
-          reports.map((report) => (
+          pinnedReports.map((report) => (
             <Marker
               key={report.id}
               position={[report.lat, report.lng]}
@@ -369,6 +429,16 @@ export const TrashMap = ({
               )}
             </Marker>
           ))}
+
+        {/* Temporary pin for a selected report that isn't normally pinned (not currently "Reported") */}
+        {showPins && temporarySelectedReport && (
+          <Marker
+            key={`temp-${temporarySelectedReport.id}`}
+            position={[temporarySelectedReport.lat, temporarySelectedReport.lng]}
+            icon={selectedSeverityIcons[temporarySelectedReport.severity]}
+            zIndexOffset={1000}
+          />
+        )}
       </MapContainer>
     </div>
   );
