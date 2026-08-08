@@ -26,3 +26,18 @@ export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> 
     }
     return res.json() as Promise<T>;
 }
+
+// Separate from apiFetch: a FormData body must NOT get a manual Content-Type — the browser
+// sets 'multipart/form-data; boundary=...' itself, which JSON.stringify-oriented apiFetch would break.
+export async function apiUpload<T>(path: string, formData: FormData): Promise<T> {
+    const res = await fetch(`${API_BASE}${path}`, {
+        method: 'POST',
+        headers: { ...authHeader() },
+        body: formData,
+    });
+    if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        throw new Error(body.error ?? `Upload failed: ${res.status}`);
+    }
+    return res.json() as Promise<T>;
+}

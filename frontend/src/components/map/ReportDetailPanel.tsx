@@ -7,6 +7,7 @@ import { SEVERITY_BADGE } from '@/config/severity';
 import { useReports } from '@/context/ReportsContext';
 import { useNotifications } from '@/components/ui/Notifications';
 import { FLAG_REASON_LABELS, type FlagReasonCode } from './TrashMap';
+import { SEVERITY_BADGE_CLASSES } from '@/config/severity';
 import ImageLightbox from './ImageLightbox';
 import DirectionsModal from '@/components/admin/DirectionsModal';
 

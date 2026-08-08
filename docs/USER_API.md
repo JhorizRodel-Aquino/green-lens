@@ -106,6 +106,7 @@ x-user-id: <your user id>   (required)
 ```
 POST /api/reports
 Content-Type: multipart/form-data
+Content-Type: multipart/form-data
 x-user-id: <your user id>   (optional)
 ```
 

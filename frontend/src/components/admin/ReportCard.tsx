@@ -2,6 +2,7 @@ import { MapPin, Clock, ImageOff, MapPinOff, ShieldAlert, RotateCcw, UserX } fro
 import { cn } from '@/utils/cn';
 import { SEVERITY_BADGE } from '@/config/severity';
 import { FLAG_REASON_LABELS, type TrashReport } from '@/components/map/TrashMap';
+import { SEVERITY_BADGE_CLASSES } from '@/config/severity';
 
 type ReportCardProps = {
     report: TrashReport;

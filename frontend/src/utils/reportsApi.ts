@@ -10,6 +10,7 @@ interface ApiReport {
     lat: number;
     lng: number;
     severity: Severity | null;
+    severity: Severity | null;
     details: string;
     locationLabel: string;
     municipalityName: string | null;

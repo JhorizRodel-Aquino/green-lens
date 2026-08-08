@@ -6,6 +6,8 @@ import { UPLOAD_DIR, MAX_FILES } from './lib/uploads';
 import usersRouter from './routes/users';
 import reportsRouter from './routes/reports';
 import authRouter from './routes/auth';
+import uploadsRouter from './routes/uploads';
+import { UPLOAD_DIR } from './lib/uploadDir';
 
 export const app = express();
 
@@ -19,6 +21,7 @@ app.get('/health', (_req, res) => res.json({ ok: true }));
 app.use('/api/auth', authRouter);
 app.use('/api/users', usersRouter);
 app.use('/api/reports', reportsRouter);
+app.use('/api/uploads', uploadsRouter);
 
 const errorHandler: ErrorRequestHandler = (err, _req, res, _next) => {
     if (err instanceof ZodError) {
