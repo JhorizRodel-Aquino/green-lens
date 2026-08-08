@@ -8,7 +8,7 @@ import { watchLocation } from "@/utils/location";
 export default function MapViewPage() {
     const { reports } = useReports();
     const unresolvedReports = reports.filter((r) => r.status === 'unresolved');
-    const { selectedLgu, setSelectedLgu, lguOptions, filteredReports } = useLguFilter(unresolvedReports);
+    const { selectedLgu, setSelectedLgu, lguOptions, filteredReports } = useLguFilter(unresolvedReports, false);
     const [userLoc, setUserLoc] = useState<MyLocation>({ lat: null, lng: null });
     const [userLocError, setuserLocError] = useState<string | null>(null);
     const [selectedReportId, setSelectedReportId] = useState<string | null>(null);

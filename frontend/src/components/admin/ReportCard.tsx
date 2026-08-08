@@ -6,6 +6,9 @@ type ReportCardProps = {
     report: TrashReport;
     onClick: () => void;
     orphaned?: boolean;
+    selected?: boolean;
+    onToggleSelect?: () => void;
+    selectionDisabled?: boolean;
 };
 
 const STATUS_CLASSES: Record<TrashReport['status'], string> = {
@@ -24,15 +27,30 @@ function timeAgo(iso: string): string {
     return `${Math.floor(hours / 24)}d ago`;
 }
 
-export default function ReportCard({ report, onClick, orphaned }: ReportCardProps) {
+export default function ReportCard({ report, onClick, orphaned, selected, onToggleSelect, selectionDisabled }: ReportCardProps) {
     const thumbnail = report.imageUrls?.[0];
 
     return (
-        <button
-            type="button"
+        <div
+            role="button"
+            tabIndex={0}
             onClick={onClick}
-            className="flex gap-3 rounded-xl border border-light-dark bg-white p-3 text-left hover:border-primary hover:shadow-md transition-all"
+            onKeyDown={(e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onClick(); } }}
+            className="relative flex gap-3 rounded-xl border border-light-dark bg-white p-3 text-left hover:border-primary hover:shadow-md transition-all cursor-pointer"
         >
+            {onToggleSelect && (
+                <input
+                    type="checkbox"
+                    checked={!!selected}
+                    disabled={!selected && selectionDisabled}
+                    onChange={onToggleSelect}
+                    onClick={(e) => e.stopPropagation()}
+                    aria-label={`Select report at ${report.locationLabel ?? 'unknown location'} for route`}
+                    title={!selected && selectionDisabled ? 'Route limit reached (10 max)' : undefined}
+                    className="absolute right-2 top-2 h-4 w-4 rounded border-light-dark text-primary accent-primary disabled:opacity-40 disabled:cursor-not-allowed"
+                />
+            )}
+
             <div className="h-16 w-16 shrink-0 rounded-lg overflow-hidden bg-light flex items-center justify-center">
                 {thumbnail ? (
                     <img src={thumbnail} alt="" className="h-full w-full object-cover" />
@@ -93,6 +111,6 @@ export default function ReportCard({ report, onClick, orphaned }: ReportCardProp
                     </span>
                 </div>
             </div>
-        </button>
+        </div>
     );
 }

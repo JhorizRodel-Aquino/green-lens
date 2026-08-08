@@ -6,18 +6,25 @@ import { cn } from '@/utils/cn';
 import { useClickOutside } from '@/utils/useClickOutside';
 import { apiFetch } from '@/utils/api';
 import { useAuth } from '@/context/AuthContext';
+import { useJurisdictionCoverage } from '@/components/admin/useJurisdictionCoverage';
 
 export const ALL_LGUS = '__all__';
+export const NO_LGU_COVERAGE = '__no_coverage__';
 
-/** Scopes `reports` down to one LGU (municipality/city). Options come from actual LGU Agent accounts, not from every jurisdiction reports happen to fall in. An LGU Agent already only sees their own municipality server-side, so no filter for them. */
-export function useLguFilter(reports: TrashReport[]) {
+/** Scopes `reports` down to one LGU (municipality/city), or to reports no LGU/ADMIN account covers.
+ * LGU options come from actual LGU Agent accounts, not from every jurisdiction reports happen to fall in.
+ * An LGU Agent already only sees their own municipality server-side, so no filter for them.
+ * The "no coverage" option is a super-admin concern (visibility into unassigned jurisdictions), so it's
+ * only offered when `includeNoCoverage` is true. */
+export function useLguFilter(reports: TrashReport[], includeNoCoverage: boolean) {
     const { user } = useAuth();
+    const { isOrphaned } = useJurisdictionCoverage();
     const [selectedLgu, setSelectedLgu] = useState(ALL_LGUS);
-    const [lguOptions, setLguOptions] = useState<string[]>([]);
+    const [lguNames, setLguNames] = useState<string[]>([]);
 
     useEffect(() => {
         if (user?.role === 'LGU_AGENT') {
-            setLguOptions([]);
+            setLguNames([]);
             return;
         }
         apiFetch<{ role: string; municipalityName: string | null }[]>('/api/users')
@@ -25,15 +32,18 @@ export function useLguFilter(reports: TrashReport[]) {
                 const names = users
                     .filter((u) => u.role === 'LGU_AGENT' && u.municipalityName)
                     .map((u) => u.municipalityName as string);
-                setLguOptions([...new Set(names)].sort());
+                setLguNames([...new Set(names)].sort());
             })
-            .catch(() => setLguOptions([]));
+            .catch(() => setLguNames([]));
     }, [user?.role]);
 
-    const filteredReports = useMemo(
-        () => selectedLgu === ALL_LGUS ? reports : reports.filter((r) => jurisdictionLabel(r) === selectedLgu),
-        [reports, selectedLgu]
-    );
+    const lguOptions = includeNoCoverage && lguNames.length > 0 ? [...lguNames, NO_LGU_COVERAGE] : lguNames;
+
+    const filteredReports = useMemo(() => {
+        if (selectedLgu === ALL_LGUS) return reports;
+        if (selectedLgu === NO_LGU_COVERAGE) return reports.filter(isOrphaned);
+        return reports.filter((r) => jurisdictionLabel(r) === selectedLgu);
+    }, [reports, selectedLgu, isOrphaned]);
 
     return { selectedLgu, setSelectedLgu, lguOptions, filteredReports };
 }
@@ -45,6 +55,7 @@ type LguFilterProps = {
 };
 
 const ALL_LABEL = 'All LGUs';
+const NO_COVERAGE_LABEL = 'No LGU Coverage';
 
 export default function LguFilter({ value, onChange, options }: LguFilterProps) {
     const [open, setOpen] = useState(false);
@@ -54,8 +65,9 @@ export default function LguFilter({ value, onChange, options }: LguFilterProps) 
 
     if (options.length <= 1) return null;
 
-    const displayValue = value === ALL_LGUS ? ALL_LABEL : value;
-    const filtered = options.filter((name) => name.toLowerCase().includes(search.toLowerCase()));
+    const labelFor = (v: string) => (v === NO_LGU_COVERAGE ? NO_COVERAGE_LABEL : v);
+    const displayValue = value === ALL_LGUS ? ALL_LABEL : labelFor(value);
+    const filtered = options.filter((name) => labelFor(name).toLowerCase().includes(search.toLowerCase()));
 
     const select = (v: string) => {
         onChange(v);
@@ -97,9 +109,9 @@ export default function LguFilter({ value, onChange, options }: LguFilterProps) 
                                 type="button"
                                 onClick={() => select(name)}
                                 className={cn('w-full text-left px-3 py-2 text-sm hover:bg-light truncate', value === name && 'bg-light font-medium')}
-                                title={name}
+                                title={labelFor(name)}
                             >
-                                {name}
+                                {labelFor(name)}
                             </button>
                         ))}
                         {filtered.length === 0 && (

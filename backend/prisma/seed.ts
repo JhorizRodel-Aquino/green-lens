@@ -127,20 +127,18 @@ async function main() {
     });
 
     // Reports — real GPS coords, reverse geocoded live via Nominatim on seed.
+    // Scoped to just the three target cities: City of Manila, Mandaluyong, and Naic.
     await seedReport({ lat: 14.3167, lng: 120.7667, details: 'Open dumping near the public market.', severity: 'HIGH' });
     await seedReport({ lat: 14.339, lng: 120.762, details: 'Uncollected trash pile along the barangay road.', severity: 'LOW' });
-    await seedReport({ lat: 14.1153, lng: 120.9622, details: 'Illegal dumping near the roadside in Tagaytay.', severity: 'LOW' });
     await seedReport({ lat: 14.5995, lng: 120.9842, details: 'Garbage overflow at a Manila street corner.', severity: 'HIGH' });
-    await seedReport({ lat: 10.3157, lng: 123.8854, details: 'Scattered waste near a Cebu City intersection.', severity: 'LOW' });
+    await seedReport({ lat: 14.5794, lng: 121.0359, details: 'Illegal dumping along a Mandaluyong side street.', severity: 'LOW' });
 
-    // NCR is the target rollout region — seed several months of history per city so the
-    // dashboard's grades/leaderboards/trends have real variance to show.
+    // Seed several months of history per city so the dashboard's grades/leaderboards/trends
+    // have real variance to show.
     const NCR_CITIES = [
-        { name: 'Quezon City', lat: 14.6760, lng: 121.0437 },
         { name: 'Manila', lat: 14.5995, lng: 120.9842 },
-        { name: 'Pasig City', lat: 14.5764, lng: 121.0851 },
-        { name: 'Makati City', lat: 14.5547, lng: 121.0244 },
-        { name: 'Taguig City', lat: 14.5350, lng: 121.0509 },
+        { name: 'Mandaluyong', lat: 14.5794, lng: 121.0359 },
+        { name: 'Naic', lat: 14.3167, lng: 120.7667 },
     ];
 
     const STATUS_CYCLE: { status: ReportStatus; resolvedDaysAfter?: number }[] = [
@@ -236,10 +234,9 @@ async function main() {
 
     // Reopened reports — citizen wasn't satisfied with the resolution and reopened it.
     const REOPENED_SPOTS: { name: string; lat: number; lng: number; reopenNote: string }[] = [
-        { name: 'Quezon City', lat: 14.6795, lng: 121.0470, reopenNote: "Trash is still here, it wasn't actually collected." },
         { name: 'Manila', lat: 14.6020, lng: 120.9810, reopenNote: 'Only half the pile was cleared, rest was left behind.' },
-        { name: 'Pasig City', lat: 14.5790, lng: 121.0880, reopenNote: 'New dumping happened again the next day at the same spot.' },
-        { name: 'Makati City', lat: 14.5570, lng: 121.0270, reopenNote: 'Crew marked it resolved but never actually showed up.' },
+        { name: 'Mandaluyong', lat: 14.5760, lng: 121.0330, reopenNote: 'New dumping happened again the next day at the same spot.' },
+        { name: 'Naic', lat: 14.3190, lng: 120.7640, reopenNote: "Trash is still here, it wasn't actually collected." },
     ];
     for (let i = 0; i < REOPENED_SPOTS.length; i++) {
         const spot = REOPENED_SPOTS[i];
