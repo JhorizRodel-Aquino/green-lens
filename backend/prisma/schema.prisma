@@ -50,6 +50,7 @@ model User {
 
 enum Severity {
   HIGH
+  MEDIUM
   LOW
 }
 

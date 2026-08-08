@@ -1,7 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
+import { access } from 'node:fs/promises';
+import path from 'node:path';
 import { prisma } from '../lib/prisma';
 import { app } from '../app';
+import { UPLOAD_DIR } from '../lib/uploads';
 
 async function withServer<T>(fn: (base: string) => Promise<T>): Promise<T> {
     const server = app.listen(0);
@@ -13,27 +16,94 @@ async function withServer<T>(fn: (base: string) => Promise<T>): Promise<T> {
     }
 }
 
-test('POST /api/reports rejects points outside the Philippines', async () => {
+/** A report submission as the app sends it: multipart, photos under `images`. */
+function reportForm(fields: { lat: number; lng: number; details: string }, photos = 1): FormData {
+    const form = new FormData();
+    form.set('lat', String(fields.lat));
+    form.set('lng', String(fields.lng));
+    form.set('details', fields.details);
+    for (let i = 0; i < photos; i++) {
+        form.append('images', new Blob([Uint8Array.from([0xff, 0xd8, 0xff])], { type: 'image/jpeg' }), `p${i}.jpg`);
+    }
+    return form;
+}
+
+/**
+ * Stubs the two outbound services the create route depends on — Nominatim and the
+ * severity scorer sidecar — so the tests never hit the network or need Python running.
+ */
+async function withStubbedServices<T>(
+    stubs: { countryCode?: string; severity?: string },
+    fn: () => Promise<T>,
+): Promise<T> {
     const originalFetch = globalThis.fetch;
-    globalThis.fetch = (async (url: string, init?: RequestInit) => {
-        if (typeof url === 'string' && url.includes('nominatim.openstreetmap.org')) {
-            return new Response(JSON.stringify({ address: { country_code: 'us' } }), { status: 200 });
+    globalThis.fetch = (async (url: string | URL, init?: RequestInit) => {
+        const href = String(url);
+        if (href.includes('nominatim.openstreetmap.org')) {
+            return new Response(JSON.stringify({ address: { country_code: stubs.countryCode ?? 'ph' } }), { status: 200 });
+        }
+        if (href.includes('/score')) {
+            return new Response(JSON.stringify({ coveragePct: 0, severity: stubs.severity ?? 'HIGH' }), { status: 200 });
         }
         return originalFetch(url, init);
     }) as typeof fetch;
 
     try {
-        await withServer(async (base) => {
-            const res = await fetch(`${base}/api/reports`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ lat: 37.7, lng: -122.4, details: 'test' }),
-            });
-            assert.equal(res.status, 422);
-        });
+        return await fn();
     } finally {
         globalThis.fetch = originalFetch;
     }
+}
+
+test('POST /api/reports rejects points outside the Philippines', async () => {
+    await withStubbedServices({ countryCode: 'us' }, () =>
+        withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports`, { method: 'POST', body: reportForm({ lat: 37.7, lng: -122.4, details: 'test' }) });
+            assert.equal(res.status, 422);
+        }),
+    );
+});
+
+test('POST /api/reports rejects photos the model finds no trash in', async () => {
+    await withStubbedServices({ severity: 'NONE' }, () =>
+        withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports`, { method: 'POST', body: reportForm({ lat: 14.5995, lng: 120.9842, details: 'test' }) });
+            assert.equal(res.status, 422);
+            assert.match((await res.json()).error, /No trash detected/);
+        }),
+    );
+});
+
+test('POST /api/reports requires at least one photo', async () => {
+    await withStubbedServices({}, () =>
+        withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports`, { method: 'POST', body: reportForm({ lat: 14.5995, lng: 120.9842, details: 'test' }, 0) });
+            assert.equal(res.status, 400);
+        }),
+    );
+});
+
+test('POST /api/reports stores the uploaded photos and the model severity', async () => {
+    await withStubbedServices({ severity: 'MEDIUM' }, () =>
+        withServer(async (base) => {
+            const res = await fetch(`${base}/api/reports`, { method: 'POST', body: reportForm({ lat: 14.5995, lng: 120.9842, details: 'multipart upload test' }, 2) });
+            assert.equal(res.status, 201);
+
+            const report = await res.json();
+            try {
+                assert.equal(report.severity, 'MEDIUM');
+                assert.equal(report.images.length, 2);
+                // Served from the API's own /uploads mount, not a client-supplied URL,
+                // and the bytes really landed on disk.
+                for (const image of report.images) {
+                    assert.match(image.url, /\/uploads\/[\w-]+\.jpg$/);
+                    await access(path.join(UPLOAD_DIR, image.url.split('/').pop() as string));
+                }
+            } finally {
+                await prisma.report.delete({ where: { id: report.id } });
+            }
+        }),
+    );
 });
 
 test('GET /api/reports only returns reports within the caller jurisdiction', async () => {
@@ -348,17 +418,17 @@ test('POST /api/reports sets reporterId when the caller is logged in', async () 
     });
 
     try {
-        await withServer(async (base) => {
+        await withStubbedServices({}, () => withServer(async (base) => {
             const res = await fetch(`${base}/api/reports`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'x-user-id': citizen.id },
-                body: JSON.stringify({ lat: 14.32, lng: 120.77, details: 'trash pile' }),
+                headers: { 'x-user-id': citizen.id },
+                body: reportForm({ lat: 14.32, lng: 120.77, details: 'trash pile' }),
             });
             assert.equal(res.status, 201);
             const body = await res.json();
             assert.equal(body.reporterId, citizen.id);
             await prisma.report.delete({ where: { id: body.id } });
-        });
+        }));
     } finally {
         await prisma.user.delete({ where: { id: citizen.id } });
     }

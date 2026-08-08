@@ -1,6 +1,7 @@
 // utils/reportsApi.ts — maps backend Report shape to the frontend's TrashReport
 import type { TrashReport, FlagReasonCode } from '@/components/map/TrashMap';
 import { apiFetch } from './api';
+import type { Severity } from '@/config/severity';
 
 type ApiStatus = 'PENDING' | 'REPORTED' | 'RESOLVED' | FlagReasonCode;
 
@@ -8,7 +9,7 @@ interface ApiReport {
     id: string;
     lat: number;
     lng: number;
-    severity: 'HIGH' | 'LOW' | null;
+    severity: Severity | null;
     details: string;
     locationLabel: string;
     municipalityName: string | null;
@@ -41,7 +42,7 @@ function toTrashReport(r: ApiReport): TrashReport {
         id: r.id,
         lat: r.lat,
         lng: r.lng,
-        // Reporter sends severity; only legacy/null rows fall back to LOW.
+        // Severity is model-derived on submit; null means scoring was unavailable.
         severity: r.severity ?? 'LOW',
         details: r.details,
         locationLabel: r.locationLabel,
@@ -72,6 +73,31 @@ function toTrashReport(r: ApiReport): TrashReport {
 export async function fetchReports(): Promise<TrashReport[]> {
     const reports = await apiFetch<ApiReport[]>('/api/reports');
     return reports.map(toTrashReport);
+}
+
+/** Camera captures are data URLs; the API takes real files, so convert before sending. */
+function dataUrlToBlob(dataUrl: string): Blob {
+    const [header, base64] = dataUrl.split(',');
+    const type = header.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg';
+    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
+    return new Blob([bytes], { type });
+}
+
+export async function createReportApi(input: {
+    lat: number;
+    lng: number;
+    details: string;
+    images: string[]; // data URLs from the camera
+}): Promise<TrashReport> {
+    const form = new FormData();
+    form.set('lat', String(input.lat));
+    form.set('lng', String(input.lng));
+    form.set('details', input.details);
+    // Severity is not sent — the backend scores it from these photos.
+    input.images.forEach((dataUrl, i) => form.append('images', dataUrlToBlob(dataUrl), `photo-${i}.jpg`));
+
+    const report = await apiFetch<ApiReport>('/api/reports', { method: 'POST', body: form });
+    return toTrashReport(report);
 }
 
 export async function acceptReportApi(id: string): Promise<TrashReport> {

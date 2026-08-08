@@ -105,42 +105,48 @@ x-user-id: <your user id>   (required)
 
 ```
 POST /api/reports
-Content-Type: application/json
+Content-Type: multipart/form-data
 x-user-id: <your user id>   (optional)
 ```
 
+The photos are uploaded **with** the report, as file parts — this endpoint no longer takes pre-hosted `imageUrls`. The backend stores the files itself and serves them back under `/uploads/<name>`.
+
 The `x-user-id` header is optional — an anonymous submission (no header) still works, but then nobody can reopen it later since there's no reporter on file. Logging in first is required to be able to reopen your own report.
 
-### Request body
-
-```json
-{
-  "lat": 14.5995,
-  "lng": 120.9842,
-  "details": "Garbage overflow at a Manila street corner.",
-  "severity": "HIGH",
-  "imageUrls": [
-    "https://your-storage.example.com/uploads/photo1.jpg",
-    "https://your-storage.example.com/uploads/photo2.jpg"
-  ]
-}
-```
+### Form fields
 
 | Field | Type | Required | Notes |
 |---|---|---|---|
-| `lat` | number | yes | GPS latitude |
-| `lng` | number | yes | GPS longitude |
+| `lat` | number (as text) | yes | GPS latitude |
+| `lng` | number (as text) | yes | GPS longitude |
 | `details` | string | yes | Non-empty description |
-| `severity` | `"HIGH"` \| `"LOW"` | no | Reporter's own assessment. Omit/null is allowed, displays as LOW until an LGU-facing override exists. |
-| `imageUrls` | string[] | no (defaults to `[]`) | Already-hosted image URLs — this endpoint does **not** accept file uploads. Upload photos to storage first, then submit the resulting URLs. |
+| `images` | file × 1–5 | yes | Repeat the field once per photo. JPEG/PNG/WebP, max 8MB each |
 
-`locationLabel` is not sent — reverse-geocoded server-side.
+There is **no `severity` field** — it is scored from the photos server-side (see below), so a reporter can't set their own dispatch priority.
+
+`locationLabel` is not sent either — reverse-geocoded server-side.
+
+```js
+const form = new FormData();
+form.set('lat', String(lat));
+form.set('lng', String(lng));
+form.set('details', 'Garbage overflow at a Manila street corner.');
+for (const file of photos) form.append('images', file);
+
+await fetch(`${API_BASE}/api/reports`, { method: 'POST', body: form, headers: { 'x-user-id': userId } });
+```
+
+Don't set `Content-Type` yourself — the browser adds it with the multipart boundary.
 
 ### What the server does with it
 
-1. Reverse-geocodes `lat`/`lng` via Nominatim to get a human-readable address (`locationLabel`) and PSGC jurisdiction (region/province-or-district/municipality-or-city). NCR reports resolve as region → district → city.
-2. Rejects the submission if the coordinates fall outside the Philippines.
-3. Creates the report with `statusValue: "PENDING"`, `reporterId` set from `x-user-id` if present.
+1. Runs the photos through the trash-segmentation model (`ml/score.py`) and derives `severity` from how much of the frame the trash covers: `HIGH` ≥ 25%, `MEDIUM` ≥ 5%, `LOW` below that. The worst photo of the batch decides.
+2. **Rejects the submission if no trash is detected in any photo** (`422`) — nothing is geocoded and no file is written.
+3. Reverse-geocodes `lat`/`lng` via Nominatim to get a human-readable address (`locationLabel`) and PSGC jurisdiction (region/province-or-district/municipality-or-city). NCR reports resolve as region → district → city.
+4. Rejects the submission if the coordinates fall outside the Philippines.
+5. Saves the photos and creates the report with `statusValue: "PENDING"`, `reporterId` set from `x-user-id` if present.
+
+If the scorer is unreachable, the report is still filed — just with `severity: null`.
 
 ### Response
 
@@ -155,7 +161,7 @@ The `x-user-id` header is optional — an anonymous submission (no header) still
   "details": "Garbage overflow at a Manila street corner.",
   "locationLabel": "... reverse-geocoded address ...",
   "images": [
-    { "url": "https://...", "kind": "USER_UPLOAD" }
+    { "url": "http://localhost:4000/uploads/f6ead694-....jpg", "kind": "USER_UPLOAD" }
   ],
   "notes": [],
   "statusValue": "PENDING",
@@ -176,8 +182,8 @@ The `x-user-id` header is optional — an anonymous submission (no header) still
 
 | Status | When |
 |---|---|
-| `422` | Coordinates are outside the Philippines |
-| `400` | Body fails validation (missing/wrong-typed field) |
+| `422` | No trash detected in the photos, or coordinates are outside the Philippines (the `error` message says which) |
+| `400` | Missing/wrong-typed field, no photo attached, more than 5 photos, a photo over 8MB, or a non-image file type |
 
 ---
 

@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/Button";
 import { watchLocation } from "@/utils/location";
 import { Camera, LayoutList } from 'lucide-react'
 import { cn } from '@/utils/cn'
+import { SEVERITY_BADGE } from '@/config/severity'
+import { createReportApi } from '@/utils/reportsApi'
 // import { STATUS_CONFIG, type ReportStatus } from '@/config/status';
 
 export default function UserPage() {
@@ -18,6 +20,8 @@ export default function UserPage() {
 
     
 
+    const [reports, setReports] = useState<TrashReport[]>(initialReports);
+
     const [openDrawer, setOpenDrawer] = useState(false)
     const [showCamera, setShowCamera] = useState(false);
 
@@ -26,7 +30,6 @@ export default function UserPage() {
     const [activeTab, setActiveTab] = useState<'report' | 'list'>('report');
 
     const [capturedImages, setCapturedImages] = useState<string[]>([]);
-    const [severity, setSeverity] = useState<'HIGH' | 'LOW'>('HIGH');
     const [remarks, setRemarks] = useState('');
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -47,17 +50,30 @@ export default function UserPage() {
             alert('Please add remarks');
             return;
         }
+        if (userLoc.lat === null || userLoc.lng === null) {
+            alert('Waiting for your GPS location — please try again in a moment.');
+            return;
+        }
 
         setIsSubmitting(true);
-        await new Promise((resolve) => setTimeout(resolve, 1500));
-
-        console.log('Submitting:', { images: capturedImages, severity, remarks });
-
-        setIsSubmitting(false);
-        setCapturedImages([]);
-        setRemarks('');
-        setSeverity('HIGH');
-        setOpenDrawer(false);
+        try {
+            // Severity is scored from the photos by the backend, not chosen here — which is
+            // also where a "no trash in this photo" submission gets rejected.
+            const report = await createReportApi({
+                lat: userLoc.lat,
+                lng: userLoc.lng,
+                details: remarks.trim(),
+                images: capturedImages,
+            });
+            setReports((prev) => [report, ...prev]);
+            setCapturedImages([]);
+            setRemarks('');
+            setOpenDrawer(false);
+        } catch (err) {
+            alert(err instanceof Error ? err.message : 'Could not submit the report. Please try again.');
+        } finally {
+            setIsSubmitting(false);
+        }
     };
 
     useEffect(() => {
@@ -75,7 +91,7 @@ export default function UserPage() {
 
     return (
         <UserLayout>
-            <TrashMap reports={initialReports} myLocation={userLoc} showLogo={true} pinOnMyLocation={true} />
+            <TrashMap reports={reports} myLocation={userLoc} showLogo={true} pinOnMyLocation={true} />
 
             {/* DRAWER WRAPPER - THIS WAS MISSING */}
             <div
@@ -126,7 +142,7 @@ export default function UserPage() {
                                 <LayoutList className="w-4 h-4" />
                                 My Reports
                                 <span className="bg-gray-200 text-gray-600 text-xs rounded-full w-5 h-5 flex items-center justify-center">
-                                    {initialReports.length}
+                                    {reports.length}
                                 </span>
                             </div>
                         </button>
@@ -166,43 +182,6 @@ export default function UserPage() {
                                     </div>
                                 </div>
 
-                                {/* Severity Selection */}
-                                <div>
-                                    <label className="block text-sm font-medium text-gray-700 mb-2">
-                                        Severity
-                                    </label>
-                                    <div className="grid grid-cols-2 gap-3">
-                                        <button
-                                            onClick={() => setSeverity('HIGH')}
-                                            className={cn(
-                                                "py-2 px-4 rounded-lg border-2 transition-all",
-                                                severity === 'HIGH'
-                                                    ? "border-red-500 bg-red-50 text-red-700"
-                                                    : "border-gray-200 hover:border-red-200"
-                                            )}
-                                        >
-                                            <div className="flex items-center justify-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-red-500" />
-                                                High
-                                            </div>
-                                        </button>
-                                        <button
-                                            onClick={() => setSeverity('LOW')}
-                                            className={cn(
-                                                "py-2 px-4 rounded-lg border-2 transition-all",
-                                                severity === 'LOW'
-                                                    ? "border-secondary bg-secondary/10 text-secondary-dark"
-                                                    : "border-gray-200 hover:border-secondary"
-                                            )}
-                                        >
-                                            <div className="flex items-center justify-center gap-2">
-                                                <span className="w-2 h-2 rounded-full bg-secondary" />
-                                                Low
-                                            </div>
-                                        </button>
-                                    </div>
-                                </div>
-
                                 {/* Remarks */}
                                 <div>
                                     <label className="block text-sm font-medium text-gray-700 mb-2">
@@ -229,14 +208,14 @@ export default function UserPage() {
                         ) : (
                             // LIST TAB
                             <div className="space-y-3">
-                                {initialReports.length === 0 ? (
+                                {reports.length === 0 ? (
                                     <div className="text-center py-10 text-gray-500">
                                         <LayoutList className="w-12 h-12 mx-auto text-gray-300 mb-3" />
                                         <p>No reports yet</p>
                                         <p className="text-sm">Tap "Report" to submit your first report</p>
                                     </div>
                                 ) : (
-                                    initialReports.map((report) => (
+                                    reports.map((report) => (
                                         <div
                                             key={report.id}
                                             className="bg-white rounded-lg border border-gray-200 p-4 hover:shadow-md transition-shadow"
@@ -246,9 +225,7 @@ export default function UserPage() {
                                                     <div className="flex items-center gap-2 mb-1">
                                                         <span className={cn(
                                                             "text-xs font-semibold px-2 py-0.5 rounded-full",
-                                                            report.severity === 'HIGH'
-                                                                ? "bg-red-100 text-red-700"
-                                                                : "text-secondary-dark bg-secondary/20"
+                                                            SEVERITY_BADGE[report.severity]
                                                         )}>
                                                             {report.severity}
                                                         </span>

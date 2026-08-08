@@ -3,6 +3,8 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { resolveJurisdiction, NotInPhilippinesError } from '../services/jurisdiction';
 import { buildJurisdictionFilter } from '../services/reportScope';
+import { scoreSeverity } from '../services/severity';
+import { uploadImages, saveImages } from '../lib/uploads';
 import { requireUser, requireSuperAdmin } from '../middleware/requireUser';
 
 const router = Router();
@@ -10,12 +12,12 @@ const router = Router();
 const PENDING_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const REOPEN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+// Multipart, so the numbers arrive as strings — coerce. No severity field: it is
+// derived from the photos server-side, never sent by the client.
 const createReportSchema = z.object({
-    lat: z.number(),
-    lng: z.number(),
+    lat: z.coerce.number(),
+    lng: z.coerce.number(),
     details: z.string().min(1),
-    severity: z.enum(['HIGH', 'LOW']).nullish(),
-    imageUrls: z.array(z.string()).default([]),
 });
 
 function distanceMeters(lat1: number, lng1: number, lat2: number, lng2: number): number {
@@ -63,9 +65,24 @@ router.get('/nearby', async (req, res, next) => {
     }
 });
 
-router.post('/', async (req, res, next) => {
+// multipart/form-data: text fields plus up to MAX_FILES photos under the `images` field.
+router.post('/', uploadImages, async (req, res, next) => {
     try {
-        const { imageUrls, ...data } = createReportSchema.parse(req.body);
+        const data = createReportSchema.parse(req.body);
+        const files = (req.files ?? []) as Express.Multer.File[];
+        if (files.length === 0) {
+            res.status(400).json({ error: 'At least one photo is required.' });
+            return;
+        }
+
+        // Score before geocoding and before touching disk: a photo with no trash in it costs
+        // no Nominatim call and leaves no orphan file behind.
+        const severity = await scoreSeverity(files.map((f) => f.buffer.toString('base64')));
+        if (severity === 'NONE') {
+            res.status(422).json({ error: 'No trash detected in the photos. Please retake a clearer photo of the trash.' });
+            return;
+        }
+
         const jurisdiction = await resolveJurisdiction(data.lat, data.lng);
 
         // Optional — a logged-in citizen gets reporterId set (needed to reopen it later); an
@@ -73,8 +90,10 @@ router.post('/', async (req, res, next) => {
         const userId = req.header('x-user-id');
         const reporterId = userId ? (await prisma.user.findUnique({ where: { id: userId } }))?.id ?? null : null;
 
+        const imageUrls = await saveImages(files);
+
         const report = await prisma.report.create({
-            data: { ...data, ...jurisdiction, reporterId, images: { create: imageUrls.map((url) => ({ url })) } },
+            data: { ...data, severity, ...jurisdiction, reporterId, images: { create: imageUrls.map((url) => ({ url })) } },
             include: { images: true, status: true, notes: true },
         });
         res.status(201).json(report);

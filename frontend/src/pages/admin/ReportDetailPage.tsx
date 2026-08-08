@@ -14,6 +14,7 @@ import ImageCarousel from '@/components/admin/ImageCarousel';
 import AssignJurisdictionForm from '@/components/admin/AssignJurisdictionForm';
 import DirectionsModal from '@/components/admin/DirectionsModal';
 import { cn } from '@/utils/cn';
+import { SEVERITY_BADGE } from '@/config/severity';
 
 function formatDateTime(iso: string): string {
     return new Date(iso).toLocaleString(undefined, {
@@ -141,7 +142,7 @@ export default function ReportDetailPage() {
                             <div className="flex flex-wrap gap-2">
                                 <span className={cn(
                                     'rounded-full px-3 py-1 text-xs font-semibold',
-                                    report.severity === 'HIGH' ? 'bg-red-100 text-red-700' : 'bg-secondary-light/30 text-secondary-dark'
+                                    SEVERITY_BADGE[report.severity]
                                 )}>
                                     {report.severity} SEVERITY
                                 </span>

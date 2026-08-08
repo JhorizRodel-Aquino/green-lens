@@ -31,7 +31,23 @@ npx prisma db seed
 ### Re-generating the client
 After any `schema.prisma` change, run `npx prisma generate` explicitly — it's not automatic on `migrate deploy`, and a stale client causes route 500s that look unrelated to the actual change.
 
-## 3. Frontend
+## 3. Severity scorer (Python sidecar)
+Report severity is derived from the submitted photos by the YOLOv8-seg model in `trash_neg.pt`, run by a small Python service:
+```bash
+cd ml
+pip install -r requirements.txt
+uvicorn score:app --port 8100
+```
+The backend reads `SEVERITY_SCORER_URL` (default `http://localhost:8100`). Without it running, reports still submit — just with `severity: null`, and the "no trash in this photo" rejection is skipped.
+
+Uploaded photos are written to `backend/uploads/` (override with `UPLOAD_DIR`) and served at `/uploads/...` using `PUBLIC_BASE_URL` (default `http://localhost:4000`) — set that if the phone/browser reaches the API on a different host.
+
+Check the model and thresholds without starting the server:
+```bash
+python ml/score.py       # runs the built-in selfcheck
+```
+
+## 4. Frontend
 ```bash
 cd frontend
 npm install

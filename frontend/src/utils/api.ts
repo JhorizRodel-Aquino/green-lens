@@ -13,9 +13,12 @@ function authHeader(): Record<string, string> {
 }
 
 export async function apiFetch<T>(path: string, init?: RequestInit): Promise<T> {
+    // FormData sets its own multipart Content-Type (with the boundary) — overriding it breaks parsing.
+    const contentType = init?.body instanceof FormData ? {} : { 'Content-Type': 'application/json' };
+
     const res = await fetch(`${API_BASE}${path}`, {
         ...init,
-        headers: { 'Content-Type': 'application/json', ...authHeader(), ...(init?.headers ?? {}) },
+        headers: { ...contentType, ...authHeader(), ...(init?.headers ?? {}) },
     });
     if (!res.ok) {
         const body = await res.json().catch(() => ({}));
