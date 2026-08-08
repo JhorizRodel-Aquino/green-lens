@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { TrashMap, type MyLocation, type TrashReport, FLAG_REASON_LABELS } from "@/components/map/TrashMap";
+import { TrashMap, type MyLocation, type TrashReport, FLAG_REASON_LABELS, REPORT_STATUS_LABELS } from "@/components/map/TrashMap";
 import UserLayout from "@/components/layout/UserLayout";
 import ReportCamera from "@/components/ReportCamera";
 import { Button } from "@/components/ui/Button";
@@ -215,7 +215,7 @@ export default function UserPage() {
                                     )}>
                                         {selectedReport.status === 'flagged' && selectedReport.flagReason
                                             ? FLAG_REASON_LABELS[selectedReport.flagReason]
-                                            : selectedReport.status}
+                                            : REPORT_STATUS_LABELS[selectedReport.status]}
                                     </span>
                                 </div>
 
@@ -398,7 +398,7 @@ export default function UserPage() {
                                                     "text-xs font-semibold px-2 py-0.5 rounded-full capitalize shrink-0",
                                                     REPORT_STATUS_BADGE[report.status]
                                                 )}>
-                                                    {report.status}
+                                                    {REPORT_STATUS_LABELS[report.status]}
                                                 </span>
                                             </div>
                                         </button>
@@ -430,10 +430,23 @@ export default function UserPage() {
 
             {!openDrawer && !showCamera &&
                 <div className="absolute bottom-5 right-4 z-[999] grid gap-3 justify-items-center">
-                    <button className="p-3 rounded-full bg-dark hover:bg-dark-light" onClick={() => setOpenDrawer(true)}>
+                    <button
+                        className="p-3 rounded-full bg-dark hover:bg-dark-light"
+                        onClick={() => {
+                            setActiveTab('list');
+                            setOpenDrawer(true);
+                        }}
+                    >
                         <LayoutList color="white" size={20} />
                     </button>
-                    <button className="p-3 rounded-full bg-primary-dark hover:bg-primary" onClick={() => setShowCamera(true)}>
+                    <button
+                        className="p-3 rounded-full bg-primary-dark hover:bg-primary"
+                        onClick={() => {
+                            setActiveTab('report');
+                            setOpenDrawer(true);
+                            setShowCamera(true);
+                        }}
+                    >
                         <Camera color="white" size={30} />
                     </button>
                 </div>

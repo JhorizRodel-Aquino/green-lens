@@ -1,6 +1,6 @@
 import { MapPin, Clock, ImageOff, MapPinOff, ShieldAlert, RotateCcw, UserX } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { FLAG_REASON_LABELS, type TrashReport } from '@/components/map/TrashMap';
+import { FLAG_REASON_LABELS, REPORT_STATUS_LABELS, type TrashReport } from '@/components/map/TrashMap';
 import { SEVERITY_BADGE_CLASSES } from '@/config/severity';
 
 type ReportCardProps = {
@@ -71,7 +71,7 @@ export default function ReportCard({ report, onClick, orphaned, selected, onTogg
                         {report.severity}
                     </span>
                     <span className={cn('rounded-full px-2 py-0.5 text-[11px] font-semibold capitalize', STATUS_CLASSES[report.status])}>
-                        {report.status}
+                        {REPORT_STATUS_LABELS[report.status]}
                     </span>
                     {report.status === 'flagged' && report.flagReason && (
                         <span className="flex items-center gap-1 rounded-full bg-secondary-light/30 px-2 py-0.5 text-[11px] font-semibold text-secondary-dark">

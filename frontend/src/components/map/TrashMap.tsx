@@ -143,6 +143,17 @@ const selectedSeverityIcons: Record<Severity, L.DivIcon> = {
 // Types for your Trash Reports
 export type ReportStatus = 'pending' | 'unresolved' | 'flagged' | 'resolved';
 
+// Display text for each status — matches the backend's own wording (statusValue) so what's
+// shown on screen is what the API actually says, even though 'unresolved' stays the internal
+// category name everywhere else (filters, colors, etc.) since it maps both REPORTED and the
+// auto-timeout case.
+export const REPORT_STATUS_LABELS: Record<ReportStatus, string> = {
+  pending: 'Pending',
+  unresolved: 'Reported',
+  flagged: 'Flagged',
+  resolved: 'Resolved',
+};
+
 // Same values the backend's ReportStatusCode table uses for flagged statuses
 // (backend/prisma/schema.prisma) — used as-is, no separate frontend vocabulary to keep in sync.
 export type FlagReasonCode = 'FALSE_REPORT' | 'DUPLICATE_REPORT' | 'MINOR_LITTER' | 'ALREADY_RESOLVED' | 'PRIVATE_PROPERTY';

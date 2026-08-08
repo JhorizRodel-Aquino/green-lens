@@ -7,7 +7,7 @@ import {
 import { useReports } from '@/context/ReportsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/components/ui/Notifications';
-import { FLAG_REASON_LABELS } from '@/components/map/TrashMap';
+import { FLAG_REASON_LABELS, REPORT_STATUS_LABELS } from '@/components/map/TrashMap';
 import { SEVERITY_BADGE_CLASSES } from '@/config/severity';
 import { Button } from '@/components/ui/Button';
 import ReportCamera from '@/components/ReportCamera';
@@ -153,7 +153,7 @@ export default function ReportDetailPage() {
                                     report.status === 'unresolved' && 'bg-light-dark text-dark-light',
                                     report.status === 'pending' && 'bg-yellow-100 text-yellow-700'
                                 )}>
-                                    {report.status}
+                                    {REPORT_STATUS_LABELS[report.status]}
                                 </span>
                             </div>
                             <span className="text-xs text-dark-light">Reported {formatDateTime(report.createdAt)}</span>

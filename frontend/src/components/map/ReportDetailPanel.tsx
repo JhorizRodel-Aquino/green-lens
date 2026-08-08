@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
 import { useReports } from '@/context/ReportsContext';
 import { useNotifications } from '@/components/ui/Notifications';
-import { FLAG_REASON_LABELS, type FlagReasonCode } from './TrashMap';
+import { FLAG_REASON_LABELS, REPORT_STATUS_LABELS, type FlagReasonCode } from './TrashMap';
 import { SEVERITY_BADGE_CLASSES } from '@/config/severity';
 import ImageLightbox from './ImageLightbox';
 import DirectionsModal from '@/components/admin/DirectionsModal';
@@ -87,7 +87,7 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
                             report.status === 'pending' && 'bg-yellow-100 text-yellow-700'
                         )}
                     >
-                        {report.status}
+                        {REPORT_STATUS_LABELS[report.status]}
                     </span>
                 </div>
 
