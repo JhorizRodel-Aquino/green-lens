@@ -8,6 +8,7 @@ import { useReports } from '@/context/ReportsContext';
 import { useAuth } from '@/context/AuthContext';
 import { useNotifications } from '@/components/ui/Notifications';
 import { FLAG_REASON_LABELS } from '@/components/map/TrashMap';
+import { SEVERITY_BADGE_CLASSES } from '@/config/severity';
 import { Button } from '@/components/ui/Button';
 import ReportCamera from '@/components/ReportCamera';
 import ImageCarousel from '@/components/admin/ImageCarousel';
@@ -141,7 +142,7 @@ export default function ReportDetailPage() {
                             <div className="flex flex-wrap gap-2">
                                 <span className={cn(
                                     'rounded-full px-3 py-1 text-xs font-semibold',
-                                    report.severity === 'HIGH' ? 'bg-red-100 text-red-700' : 'bg-secondary-light/30 text-secondary-dark'
+                                    SEVERITY_BADGE_CLASSES[report.severity]
                                 )}>
                                     {report.severity} SEVERITY
                                 </span>

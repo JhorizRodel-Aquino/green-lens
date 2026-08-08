@@ -1,6 +1,7 @@
 // utils/reportsApi.ts — maps backend Report shape to the frontend's TrashReport
 import type { TrashReport, FlagReasonCode } from '@/components/map/TrashMap';
-import { apiFetch } from './api';
+import type { Severity } from '@/config/severity';
+import { apiFetch, apiUpload } from './api';
 
 type ApiStatus = 'PENDING' | 'REPORTED' | 'RESOLVED' | FlagReasonCode;
 
@@ -8,7 +9,7 @@ interface ApiReport {
     id: string;
     lat: number;
     lng: number;
-    severity: 'HIGH' | 'LOW' | null;
+    severity: Severity | null;
     details: string;
     locationLabel: string;
     municipalityName: string | null;
@@ -41,7 +42,7 @@ function toTrashReport(r: ApiReport): TrashReport {
         id: r.id,
         lat: r.lat,
         lng: r.lng,
-        // Reporter sends severity; only legacy/null rows fall back to LOW.
+        // Severity is assigned by the backend, not the reporter; null (not yet assessed) falls back to LOW.
         severity: r.severity ?? 'LOW',
         details: r.details,
         locationLabel: r.locationLabel,
@@ -72,6 +73,32 @@ function toTrashReport(r: ApiReport): TrashReport {
 export async function fetchReports(): Promise<TrashReport[]> {
     const reports = await apiFetch<ApiReport[]>('/api/reports');
     return reports.map(toTrashReport);
+}
+
+// Report creation doesn't accept file uploads directly (see docs/USER_API.md) — photos have
+// to be uploaded first to get back hosted URLs, then those URLs go in the report payload.
+export async function uploadReportImages(files: Blob[]): Promise<string[]> {
+    if (files.length === 0) return [];
+    const form = new FormData();
+    files.forEach((file, i) => form.append('images', file, `photo-${i}.jpg`));
+    const { urls } = await apiUpload<{ urls: string[] }>('/api/uploads', form);
+    return urls;
+}
+
+// No severity here — the backend assigns it, the citizen doesn't pick one at submission time.
+export type CreateReportPayload = {
+    lat: number;
+    lng: number;
+    details: string;
+    imageUrls: string[];
+};
+
+export async function createReportApi(payload: CreateReportPayload): Promise<TrashReport> {
+    const report = await apiFetch<ApiReport>('/api/reports', {
+        method: 'POST',
+        body: JSON.stringify(payload),
+    });
+    return toTrashReport(report);
 }
 
 export async function acceptReportApi(id: string): Promise<TrashReport> {

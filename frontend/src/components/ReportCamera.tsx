@@ -66,7 +66,7 @@ export default function ReportCamera({ onClose, onCapture }: ReportCameraProps) 
         ref={cameraRef}
         autoPlayOnStart={false}
         onCapture={(media) => {
-         onCapture(media.url);
+         onCapture?.(media.url);
         }}
         onError={handleError}
         facingMode="environment"

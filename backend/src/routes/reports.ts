@@ -4,17 +4,21 @@ import { prisma } from '../lib/prisma';
 import { resolveJurisdiction, NotInPhilippinesError } from '../services/jurisdiction';
 import { buildJurisdictionFilter } from '../services/reportScope';
 import { requireUser, requireSuperAdmin } from '../middleware/requireUser';
+import { imageUpload, fileUrl } from '../lib/imageUpload';
 
 const router = Router();
 
 const PENDING_TIMEOUT_MS = 24 * 60 * 60 * 1000;
 const REOPEN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 
+// lat/lng arrive as strings when the request is multipart/form-data (photos + fields together),
+// as real numbers when it's plain JSON — z.coerce handles both.
 const createReportSchema = z.object({
-    lat: z.number(),
-    lng: z.number(),
+    lat: z.coerce.number(),
+    lng: z.coerce.number(),
     details: z.string().min(1),
-    severity: z.enum(['HIGH', 'LOW']).nullish(),
+    severity: z.enum(['HIGH', 'MEDIUM', 'LOW']).nullish(),
+    // Already-hosted URLs, if any — merged with whatever comes in via the `images` files below.
     imageUrls: z.array(z.string()).default([]),
 });
 
@@ -63,9 +67,12 @@ router.get('/nearby', async (req, res, next) => {
     }
 });
 
-router.post('/', async (req, res, next) => {
+router.post('/', imageUpload.array('images', 5), async (req, res, next) => {
     try {
-        const { imageUrls, ...data } = createReportSchema.parse(req.body);
+        const { imageUrls: hostedImageUrls, ...data } = createReportSchema.parse(req.body);
+        const files = (req.files as Express.Multer.File[]) ?? [];
+        const imageUrls = [...hostedImageUrls, ...files.map((f) => fileUrl(req, f.filename))];
+
         const jurisdiction = await resolveJurisdiction(data.lat, data.lng);
 
         // Optional — a logged-in citizen gets reporterId set (needed to reopen it later); an

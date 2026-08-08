@@ -4,3 +4,6 @@ dist
 .env
 
 /src/generated/prisma
+
+# Locally stored uploaded report photos (dev-only storage, see src/lib/uploadDir.ts)
+/uploads

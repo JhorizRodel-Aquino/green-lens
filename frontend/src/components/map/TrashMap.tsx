@@ -10,7 +10,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import Logo from '../Logo';
-import { SEVERITY_COLORS } from '@/config/severity';
+import { SEVERITY_COLORS, type Severity } from '@/config/severity';
 import { cn } from '@/utils/cn';
 // import { type ReportStatus } from '@/config/status';
 
@@ -84,8 +84,15 @@ const createSeverityIcon = (color: string) =>
     iconAnchor: [PIN_SIZE / 2, PIN_SIZE],
   });
 
-const severityIcons: Record<'HIGH' | 'LOW', L.DivIcon> = {
+const HEATMAP_INTENSITY: Record<Severity, number> = {
+  HIGH: 1.0,
+  MEDIUM: 0.6,
+  LOW: 0.3,
+};
+
+const severityIcons: Record<Severity, L.DivIcon> = {
   HIGH: createSeverityIcon(SEVERITY_COLORS.HIGH),
+  MEDIUM: createSeverityIcon(SEVERITY_COLORS.MEDIUM),
   LOW: createSeverityIcon(SEVERITY_COLORS.LOW),
 };
 
@@ -127,8 +134,9 @@ const createSelectedSeverityIcon = (color: string) =>
     iconAnchor: [SELECTED_PIN_SIZE / 2, SELECTED_PIN_SIZE],
   });
 
-const selectedSeverityIcons: Record<'HIGH' | 'LOW', L.DivIcon> = {
+const selectedSeverityIcons: Record<Severity, L.DivIcon> = {
   HIGH: createSelectedSeverityIcon(SEVERITY_COLORS.HIGH),
+  MEDIUM: createSelectedSeverityIcon(SEVERITY_COLORS.MEDIUM),
   LOW: createSelectedSeverityIcon(SEVERITY_COLORS.LOW),
 };
 
@@ -151,7 +159,7 @@ export type TrashReport = {
   id: string;
   lat: number;
   lng: number;
-  severity: 'HIGH' | 'LOW';
+  severity: Severity;
   details: string;
   locationLabel?: string;
   municipalityName?: string | null;
@@ -241,7 +249,7 @@ export const TrashMap = ({
   const heatPoints: HeatPoint[] = reports.map((r) => [
     r.lat,
     r.lng,
-    r.severity === 'HIGH' ? 1.0 : 0.3,
+    HEATMAP_INTENSITY[r.severity],
   ]);
 
   return (
@@ -304,7 +312,7 @@ export const TrashMap = ({
 
         {/* Default to fitting every report; only fall back to the user's location when there's nothing to fit */}
         <FitAllReports reports={reports} />
-        {reports.length === 0 || pinOnMyLocation && <RecenterOnMyLocation myLocation={myLocation} />}
+        {(reports.length === 0 || pinOnMyLocation) && <RecenterOnMyLocation myLocation={myLocation} />}
 
         {/* Heatmap Component */}
         {showHeatmap && <HeatmapLayer points={heatPoints} />}
