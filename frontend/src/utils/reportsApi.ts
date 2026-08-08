@@ -75,29 +75,23 @@ export async function fetchReports(): Promise<TrashReport[]> {
     return reports.map(toTrashReport);
 }
 
-// Report creation doesn't accept file uploads directly (see docs/USER_API.md) — photos have
-// to be uploaded first to get back hosted URLs, then those URLs go in the report payload.
-export async function uploadReportImages(files: Blob[]): Promise<string[]> {
-    if (files.length === 0) return [];
-    const form = new FormData();
-    files.forEach((file, i) => form.append('images', file, `photo-${i}.jpg`));
-    const { urls } = await apiUpload<{ urls: string[] }>('/api/uploads', form);
-    return urls;
-}
-
 // No severity here — the backend assigns it, the citizen doesn't pick one at submission time.
+// Photos go straight in as files (multipart) — POST /api/reports accepts them directly now.
 export type CreateReportPayload = {
     lat: number;
     lng: number;
     details: string;
-    imageUrls: string[];
+    images: Blob[];
 };
 
 export async function createReportApi(payload: CreateReportPayload): Promise<TrashReport> {
-    const report = await apiFetch<ApiReport>('/api/reports', {
-        method: 'POST',
-        body: JSON.stringify(payload),
-    });
+    const form = new FormData();
+    form.append('lat', String(payload.lat));
+    form.append('lng', String(payload.lng));
+    form.append('details', payload.details);
+    payload.images.forEach((image, i) => form.append('images', image, `photo-${i}.jpg`));
+
+    const report = await apiUpload<ApiReport>('/api/reports', form);
     return toTrashReport(report);
 }
 

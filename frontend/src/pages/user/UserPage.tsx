@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/Button";
 import { watchLocation } from "@/utils/location";
 import { Camera, LayoutList, ArrowLeft, MapPin, ImageOff, Expand } from 'lucide-react'
 import { cn } from '@/utils/cn'
-import { fetchReports, uploadReportImages, createReportApi } from '@/utils/reportsApi'
+import { fetchReports, createReportApi } from '@/utils/reportsApi'
 import ImageLightbox from '@/components/map/ImageLightbox'
 import { SEVERITY_BADGE_CLASSES } from '@/config/severity'
 
@@ -65,16 +65,15 @@ export default function UserPage() {
 
         setIsSubmitting(true);
         try {
-            // Captured photos are blob/data URLs from the camera — turn them into real files
-            // (multipart) before the report itself, since /api/reports only accepts hosted URLs.
-            const blobs = await Promise.all(capturedImages.map((url) => fetch(url).then((r) => r.blob())));
-            const imageUrls = await uploadReportImages(blobs);
+            // Captured photos are blob/data URLs from the camera — turn them into real files,
+            // POST /api/reports takes them directly as multipart.
+            const images = await Promise.all(capturedImages.map((url) => fetch(url).then((r) => r.blob())));
 
             const report = await createReportApi({
                 lat: userLoc.lat,
                 lng: userLoc.lng,
                 details: description.trim(),
-                imageUrls,
+                images,
             });
 
             setReports((prev) => [report, ...prev]);

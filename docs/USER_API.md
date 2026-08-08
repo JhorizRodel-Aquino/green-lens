@@ -105,7 +105,7 @@ x-user-id: <your user id>   (required)
 
 ```
 POST /api/reports
-Content-Type: application/json
+Content-Type: multipart/form-data
 x-user-id: <your user id>   (optional)
 ```
 
@@ -113,17 +113,15 @@ The `x-user-id` header is optional — an anonymous submission (no header) still
 
 ### Request body
 
-```json
-{
-  "lat": 14.5995,
-  "lng": 120.9842,
-  "details": "Garbage overflow at a Manila street corner.",
-  "severity": "HIGH",
-  "imageUrls": [
-    "https://your-storage.example.com/uploads/photo1.jpg",
-    "https://your-storage.example.com/uploads/photo2.jpg"
-  ]
-}
+Send as `multipart/form-data` — photos go straight in as files, no separate upload step:
+
+```
+curl -X POST http://localhost:4000/api/reports \
+  -H "x-user-id: <your user id>" \
+  -F "lat=14.5995" -F "lng=120.9842" \
+  -F "details=Garbage overflow at a Manila street corner." \
+  -F "images=@photo1.jpg;type=image/jpeg" \
+  -F "images=@photo2.jpg;type=image/jpeg"
 ```
 
 | Field | Type | Required | Notes |
@@ -131,8 +129,11 @@ The `x-user-id` header is optional — an anonymous submission (no header) still
 | `lat` | number | yes | GPS latitude |
 | `lng` | number | yes | GPS longitude |
 | `details` | string | yes | Non-empty description |
-| `severity` | `"HIGH"` \| `"LOW"` | no | Reporter's own assessment. Omit/null is allowed, displays as LOW until an LGU-facing override exists. |
-| `imageUrls` | string[] | no (defaults to `[]`) | Already-hosted image URLs — this endpoint does **not** accept file uploads. Upload photos to storage first, then submit the resulting URLs. |
+| `images` | file[] | no | Up to 5 photos, 10MB each, image mimetypes only. Saved to disk and served back under `/uploads/...`. |
+
+There's no `severity` field to send — the citizen doesn't pick one. Severity is assigned by the backend, not the reporter (defaults to unset/`null` until that assignment logic exists, which currently displays as LOW).
+
+Plain JSON is still accepted too (e.g. for server-to-server calls that already have hosted URLs) — send `Content-Type: application/json` with `imageUrls: string[]` instead of `images` files; the two can even be combined in the same multipart request if needed.
 
 `locationLabel` is not sent — reverse-geocoded server-side.
 
