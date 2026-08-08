@@ -28,6 +28,12 @@ Optional: seed sample data (reports use live GPS reverse-geocoding, so seeding h
 npx prisma db seed
 ```
 
+The seed attaches placeholder images. To swap in real trash photos — copies them into `uploads/` and repoints every report image at the copy:
+```bash
+npx tsx scripts/import-sample-images.ts <folder-of-photos> --score
+```
+`--score` also re-runs each report through the severity scorer (needs `ml/score.py` running, see §3) so the stored severity matches the photo. Re-running the import orphans the previous copies; clear them with `npx tsx scripts/prune-uploads.ts --delete`.
+
 ### Re-generating the client
 After any `schema.prisma` change, run `npx prisma generate` explicitly — it's not automatic on `migrate deploy`, and a stale client causes route 500s that look unrelated to the actual change.
 

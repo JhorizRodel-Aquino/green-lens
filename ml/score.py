@@ -5,8 +5,10 @@ Python (which would reload the ~50MB model on every report).
 
 Coverage is the UNION of predicted instance masks, not the sum of their areas --
 overlapping detections would otherwise double-count and inflate the score.
-Thresholds are training-set quartiles (p25 = 5.1%, p75 = 28.8%): a policy knob,
-not a property of the model. Tune to whatever dispatch policy needs.
+Thresholds are a policy knob, not a property of the model: LOW is up to 10% of the
+frame, MEDIUM up to 25%, HIGH above that. Picked from the sample set's own spread
+(0.5%-40%, median ~24%) to split it roughly into thirds — re-measure before reusing
+these on differently-framed photos. Tune to whatever dispatch policy needs.
 
     pip install -r requirements.txt
     uvicorn score:app --port 8100
@@ -24,8 +26,8 @@ from pydantic import BaseModel
 
 WEIGHTS = os.environ.get("TRASH_WEIGHTS", os.path.join(os.path.dirname(__file__), "..", "trash_neg.pt"))
 CONF = float(os.environ.get("TRASH_CONF", "0.25"))
-MEDIUM_MIN = 5.0   # coverage % at or above this -> MEDIUM
-HIGH_MIN = 25.0    # coverage % at or above this -> HIGH
+LOW_MAX = 10.0     # coverage % up to this -> LOW
+MEDIUM_MAX = 25.0  # coverage % up to this -> MEDIUM, above it -> HIGH
 
 app = FastAPI()
 _model = None
@@ -61,11 +63,11 @@ def classify(coverage: float) -> str:
     # backend rejects the report rather than filing an empty one.
     if coverage == 0.0:
         return "NONE"
-    if coverage >= HIGH_MIN:
-        return "HIGH"
-    if coverage >= MEDIUM_MIN:
+    if coverage <= LOW_MAX:
+        return "LOW"
+    if coverage <= MEDIUM_MAX:
         return "MEDIUM"
-    return "LOW"
+    return "HIGH"
 
 
 def decode(image: str) -> Image.Image:
@@ -119,8 +121,9 @@ def _selfcheck():
     assert abs(coverage_percent(FakeResult(FakeMasks(small.unsqueeze(0)), (200, 200))) - 50.0) < 0.5
 
     assert coverage_percent(FakeResult(None, (10, 10))) == 0.0
-    assert [classify(c) for c in (0.0, 1.0, 5.0, 10.0, 25.0, 40.0)] == \
-        ["NONE", "LOW", "MEDIUM", "MEDIUM", "HIGH", "HIGH"]
+    # Boundaries land in the lower band: 10% is LOW, 25% is MEDIUM.
+    assert [classify(c) for c in (0.0, 1.0, 10.0, 10.1, 25.0, 25.1, 90.0)] == \
+        ["NONE", "LOW", "LOW", "MEDIUM", "MEDIUM", "HIGH", "HIGH"]
 
     # data: URL prefix is stripped, bare base64 also works
     png = base64.b64decode(
