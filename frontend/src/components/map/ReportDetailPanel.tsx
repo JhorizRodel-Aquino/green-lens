@@ -3,10 +3,10 @@ import { useNavigate } from 'react-router-dom';
 import { X, MapPin, ImageOff, CircleCheck, Flag, ChevronDown, ChevronLeft, ChevronRight, Expand } from 'lucide-react';
 import { Button } from '@/components/ui/Button';
 import { cn } from '@/utils/cn';
-import { SEVERITY_BADGE } from '@/config/severity';
 import { useReports } from '@/context/ReportsContext';
 import { useNotifications } from '@/components/ui/Notifications';
 import { FLAG_REASON_LABELS, type FlagReasonCode } from './TrashMap';
+import { SEVERITY_BADGE_CLASSES } from '@/config/severity';
 import ImageLightbox from './ImageLightbox';
 import DirectionsModal from '@/components/admin/DirectionsModal';
 
@@ -73,7 +73,7 @@ export default function ReportDetailPanel({ reportId, onClose }: ReportDetailPan
                     <span
                         className={cn(
                             'inline-block rounded-full px-3 py-1 text-xs font-semibold',
-                            SEVERITY_BADGE[report.severity]
+                            SEVERITY_BADGE_CLASSES[report.severity]
                         )}
                     >
                         {report.severity} SEVERITY

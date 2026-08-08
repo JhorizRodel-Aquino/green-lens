@@ -75,26 +75,20 @@ export async function fetchReports(): Promise<TrashReport[]> {
     return reports.map(toTrashReport);
 }
 
-/** Camera captures are data URLs; the API takes real files, so convert before sending. */
-function dataUrlToBlob(dataUrl: string): Blob {
-    const [header, base64] = dataUrl.split(',');
-    const type = header.match(/data:([^;]+)/)?.[1] ?? 'image/jpeg';
-    const bytes = Uint8Array.from(atob(base64), (c) => c.charCodeAt(0));
-    return new Blob([bytes], { type });
-}
-
 export async function createReportApi(input: {
     lat: number;
     lng: number;
     details: string;
-    images: string[]; // data URLs from the camera
+    images: string[]; // blob: or data: URLs from the camera
 }): Promise<TrashReport> {
     const form = new FormData();
     form.set('lat', String(input.lat));
     form.set('lng', String(input.lng));
     form.set('details', input.details);
     // Severity is not sent — the backend scores it from these photos.
-    input.images.forEach((dataUrl, i) => form.append('images', dataUrlToBlob(dataUrl), `photo-${i}.jpg`));
+    // fetch() resolves both blob: (react-camera-component's actual output) and data: URLs to a Blob.
+    const blobs = await Promise.all(input.images.map((url) => fetch(url).then((r) => r.blob())));
+    blobs.forEach((blob, i) => form.append('images', blob, `photo-${i}.jpg`));
 
     const report = await apiFetch<ApiReport>('/api/reports', { method: 'POST', body: form });
     return toTrashReport(report);

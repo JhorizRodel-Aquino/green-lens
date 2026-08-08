@@ -1,7 +1,7 @@
 import { MapPin, Clock, ImageOff, MapPinOff, ShieldAlert, RotateCcw, UserX } from 'lucide-react';
 import { cn } from '@/utils/cn';
-import { SEVERITY_BADGE } from '@/config/severity';
 import { FLAG_REASON_LABELS, type TrashReport } from '@/components/map/TrashMap';
+import { SEVERITY_BADGE_CLASSES } from '@/config/severity';
 
 type ReportCardProps = {
     report: TrashReport;
@@ -65,7 +65,7 @@ export default function ReportCard({ report, onClick, orphaned, selected, onTogg
                     <span
                         className={cn(
                             'rounded-full px-2 py-0.5 text-[11px] font-semibold',
-                            SEVERITY_BADGE[report.severity]
+                            SEVERITY_BADGE_CLASSES[report.severity]
                         )}
                     >
                         {report.severity}
