@@ -10,7 +10,7 @@ import markerIcon2x from 'leaflet/dist/images/marker-icon-2x.png';
 import markerIcon from 'leaflet/dist/images/marker-icon.png';
 import markerShadow from 'leaflet/dist/images/marker-shadow.png';
 import Logo from '../Logo';
-import { SEVERITY_COLORS, SEVERITY_WEIGHT, type Severity } from '@/config/severity';
+import { SEVERITY_COLORS, type Severity } from '@/config/severity';
 import { cn } from '@/utils/cn';
 // import { type ReportStatus } from '@/config/status';
 
@@ -134,7 +134,6 @@ const createSelectedSeverityIcon = (color: string) =>
     iconAnchor: [SELECTED_PIN_SIZE / 2, SELECTED_PIN_SIZE],
   });
 
-const selectedSeverityIcons: Record<Severity, L.DivIcon> = {
 const selectedSeverityIcons: Record<Severity, L.DivIcon> = {
   HIGH: createSelectedSeverityIcon(SEVERITY_COLORS.HIGH),
   MEDIUM: createSelectedSeverityIcon(SEVERITY_COLORS.MEDIUM),

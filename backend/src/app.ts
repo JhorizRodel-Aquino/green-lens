@@ -7,7 +7,6 @@ import usersRouter from './routes/users';
 import reportsRouter from './routes/reports';
 import authRouter from './routes/auth';
 import uploadsRouter from './routes/uploads';
-import { UPLOAD_DIR } from './lib/uploadDir';
 
 export const app = express();
 

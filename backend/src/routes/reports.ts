@@ -6,7 +6,6 @@ import { buildJurisdictionFilter } from '../services/reportScope';
 import { scoreSeverity } from '../services/severity';
 import { uploadImages, saveImages } from '../lib/uploads';
 import { requireUser, requireSuperAdmin } from '../middleware/requireUser';
-import { imageUpload, fileUrl } from '../lib/imageUpload';
 
 const router = Router();
 
@@ -16,8 +15,6 @@ const REOPEN_WINDOW_MS = 7 * 24 * 60 * 60 * 1000;
 // Multipart, so the numbers arrive as strings — coerce. No severity field: it is
 // derived from the photos server-side, never sent by the client.
 const createReportSchema = z.object({
-    lat: z.coerce.number(),
-    lng: z.coerce.number(),
     lat: z.coerce.number(),
     lng: z.coerce.number(),
     details: z.string().min(1),

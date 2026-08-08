@@ -15,7 +15,6 @@ import ImageCarousel from '@/components/admin/ImageCarousel';
 import AssignJurisdictionForm from '@/components/admin/AssignJurisdictionForm';
 import DirectionsModal from '@/components/admin/DirectionsModal';
 import { cn } from '@/utils/cn';
-import { SEVERITY_BADGE } from '@/config/severity';
 
 function formatDateTime(iso: string): string {
     return new Date(iso).toLocaleString(undefined, {

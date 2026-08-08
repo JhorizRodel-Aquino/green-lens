@@ -65,15 +65,11 @@ export default function UserPage() {
 
         setIsSubmitting(true);
         try {
-            // Captured photos are blob/data URLs from the camera — turn them into real files,
-            // POST /api/reports takes them directly as multipart.
-            const images = await Promise.all(capturedImages.map((url) => fetch(url).then((r) => r.blob())));
-
             const report = await createReportApi({
                 lat: userLoc.lat,
                 lng: userLoc.lng,
                 details: description.trim(),
-                images,
+                images: capturedImages,
             });
 
             setReports((prev) => [report, ...prev]);

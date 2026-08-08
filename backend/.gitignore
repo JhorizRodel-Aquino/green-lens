@@ -5,5 +5,5 @@ dist
 
 /src/generated/prisma
 
-# Locally stored uploaded report photos (dev-only storage, see src/lib/uploadDir.ts)
+# Locally stored uploaded report photos (dev-only storage, see src/lib/uploads.ts)
 /uploads

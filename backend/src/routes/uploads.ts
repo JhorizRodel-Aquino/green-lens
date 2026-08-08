@@ -1,14 +1,18 @@
 import { Router } from 'express';
-import { imageUpload, fileUrl } from '../lib/imageUpload';
+import { uploadImages, saveImages } from '../lib/uploads';
 
 const router = Router();
 
 // Standalone upload endpoint — for flows that need hosted URLs ahead of time (e.g. reopen
-// proof photos). Report creation itself now accepts photos directly, see routes/reports.ts.
-router.post('/', imageUpload.array('images', 5), (req, res) => {
-    const files = (req.files as Express.Multer.File[]) ?? [];
-    const urls = files.map((file) => fileUrl(req, file.filename));
-    res.status(201).json({ urls });
+// proof photos). Report creation itself scores+saves photos inline, see routes/reports.ts.
+router.post('/', uploadImages, async (req, res, next) => {
+    try {
+        const files = (req.files as Express.Multer.File[]) ?? [];
+        const urls = await saveImages(files);
+        res.status(201).json({ urls });
+    } catch (err) {
+        next(err);
+    }
 });
 
 export default router;
